@@ -1,5 +1,4 @@
 source 'http://rubygems.org'
 gem 'rest-client'
 gem 'nori'
-gem 'nokogiri'
 gem 'awesome_print'
