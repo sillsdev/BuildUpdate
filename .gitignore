@@ -19,3 +19,6 @@ doc/
 
 # JetBrains
 .idea
+
+# Test files
+buildupdate.sh
