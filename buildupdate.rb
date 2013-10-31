@@ -71,7 +71,7 @@ def os
     when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
       :windows
     when /darwin|mac os/
-      :macosx
+      :osx
     when /linux/
       :linux
     when /solaris|bsd/
