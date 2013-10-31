@@ -7,7 +7,9 @@ Manages a bash script that update the current build environment based on TeamCit
 
 How to use
 ----------
-Create a buildupdate.sh script in your build directory with configuration.  Run the buildupdate.rb script to update buildupdate.sh with all of the calls to update the current build environment.  Then commit the buildupdate.sh script to source control.
+1. Create a buildupdate.sh script in your build directory with configuration.  
+2. Run the buildupdate.rb script to update buildupdate.sh with all of the calls to update the current build environment.  
+3. Then commit the buildupdate.sh script to source control.
 
 File format
 -----------
