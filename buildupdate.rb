@@ -3,7 +3,7 @@ require 'rubygems'
 require 'rest_client'
 require 'optparse'
 require 'nori'
-require 'fuzz_ball'
+
 require 'awesome_print'
 
 class PropertiesObject
