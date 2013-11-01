@@ -6,6 +6,14 @@ require 'nori'
 
 require 'awesome_print'
 
+class String
+  def to_bool
+    return true if self == true || self =~ (/(true|t|yes|y|1)$/i)
+    return false if self == false || self.blank? || self =~ (/(false|f|no|n|0)$/i)
+    raise ArgumentError.new("invalid value for Boolean: \"#{self}\"")
+  end
+end
+
 class PropertiesObject
   def initialize(props)
     props.each do |p|
@@ -13,6 +21,32 @@ class PropertiesObject
       value = p[:@value]
       self.singleton_class.send(:attr_accessor, name.to_sym)
       self.send("#{name}=", value)
+    end
+  end
+end
+
+class ArtifactDependency
+  attr_accessor :clean_destination_directory, :path_rules, :revision_name, :revision_value, :build_type
+
+  def initialize(props)
+    @clean_destination_directory = false
+    @path_rules =  {}
+    props.each do |p|
+      name = p[:@name]
+      value = p[:@value]
+      case name
+      when "cleanDestinationDirectory"
+        @clean_destination_directory = value.to_bool
+      when "pathRules"
+        value.split("\n").each do |line|
+          (src,dst) = line.split("=>")
+          @path_rules[src] = dst
+        end
+      when "source_buildTypeId"
+        @build_type = value
+      else
+        self.send("#{name.snakecase}=", value)
+      end
     end
   end
 end
@@ -25,7 +59,7 @@ class ArtifactDependencies
     deps = parser.parse(xml)[:artifact_dependencies][:artifact_dependency]
     deps.each do |d|
       props = d[:properties][:property]
-      obj = PropertiesObject.new(props)
+      obj = ArtifactDependency.new(props)
       @dependencies.push(obj)
     end
   end
@@ -63,6 +97,29 @@ class TeamCityBuilds
   end
 end
 
+class BuildUpdateScript
+  attr_accessor :header_lines, :options, :lines
+  def initialize(path)
+    @header_lines = []
+    @options = {}
+    @lines = []
+    if File.exist?(path)
+      re = /#\s*([^=]+)=(.*)$/
+      File.open(path).each do |l|
+        break unless /^#/.match(l)
+        @header_lines.push(l)
+        m = re.match(l)
+        unless m.nil? || m.length < 2
+          @options[m[1].to_sym] = m[2]
+        end
+      end
+    end
+  end
+
+  def to_s
+    header_lines.join + "\n" + lines.join("\n")
+  end
+end
 
 def os
   @os ||= (
@@ -93,15 +150,9 @@ end
 
 options = { :server => "build.palaso.org" }
 
-if File.exist?("buildupdate.sh")
-  re = /#\s*([^=]+)=(.*)$/
-  File.open("buildupdate.sh").each do |l|
-    m = re.match(l)
-    unless m.nil? || m.length < 2
-      options[m[1].to_sym] = m[2]
-    end
-  end
-end
+script = BuildUpdateScript.new("buildupdate.sh")
+options.merge!(script.options)
+
 puts options
 
 OptionParser.new do |opts|
@@ -119,18 +170,21 @@ OptionParser.new do |opts|
     abort("Invalid build_type: #{b}.  Should be bt[0-9]+") if b !~ /^bt[0-9]+/
     options[:build_type] = bt
   end
+
+  opts.on("-c", "--create", "Create a new buildupdate.sh file based on arguments")
 end.parse!
 
 v = options[:verbose]
 
 server = options[:server]
-site_url = "http://#{server}/guestAuth/app/rest"
+site_url = "http://#{server}/guestAuth/app/rest/7.0"
 site = RestClient::Resource.new(site_url) #, :headers => { :accept => "application/json"})
 
 if options[:build_type].nil?
   # Lookup build_type based on project name and build name
   project_name = os_specific?(:project, options)
   abort("You need to specify project in buildupdate.sh!") if project_name.nil?
+
   build_name = os_specific?(:build, options)
   abort("You need to specify build or build.#{os} in buildupdate.sh!") if build_name.nil?
 
@@ -148,11 +202,28 @@ else
 end
 abort("You need to specify project/build or build_type in buildupdate.sh!") if build_type.nil?
 
-puts build_type
-exit
-
 deps_xml = site["/buildTypes/id:#{build_type}/artifact-dependencies"].get
+ap deps_xml
+abort("BuildType '#{build_type}' not Found!") if deps_xml.nil?
+
 deps = ArtifactDependencies.new(deps_xml)
-deps.dependencies.each do |d|
-  #TODO: fetch dependencies
+abort("Dependencies not found!") if deps.nil?
+
+deps.dependencies.select { |dep| dep.clean_destination_directory }.each do |d|
+  script.lines.push("# clean destination directories")
+  d.path_rules.each do |src,dst|
+    script.lines.push("rm -rf #{dst}")
+  end
 end
+
+script.lines.push("\n# download artifact dependencies")
+script.lines.push("mkdir -p artifact_dependencies")
+deps.dependencies.each do |d|
+  d.path_rules.each do |src,dst|
+    # For each src, create a REST call to download the artifact and then extract to destination
+
+     #site[/]
+  end
+end
+
+puts script.to_s
