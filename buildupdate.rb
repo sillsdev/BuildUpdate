@@ -12,6 +12,10 @@ class String
     return false if self == false || self.blank? || self =~ (/(false|f|no|n|0)$/i)
     raise ArgumentError.new("invalid value for Boolean: \"#{self}\"")
   end
+
+  def glob?
+    return self.count("*?") > 0
+  end
 end
 
 class PropertiesObject
@@ -97,6 +101,18 @@ class TeamCityBuilds
   end
 end
 
+class IvyArtifacts
+  attr_reader :artifacts
+  def initialize(xml)
+    @artifacts = []
+    parser = Nori.new(:convert_tags_to => lambda { |tag| tag.snakecase.to_sym })
+    artifacts = parser.parse(xml)[:ivy_module][:publications][:artifact]
+    artifacts.each do |a|
+      @artifacts.push("#{a[:@name]}.#{a[:@ext]}")
+    end
+  end
+end
+
 class BuildUpdateScript
   attr_accessor :header_lines, :options, :lines
   def initialize(path)
@@ -148,61 +164,72 @@ def os_specific?(option, options)
   end
 end
 
-options = { :server => "build.palaso.org" }
+$options = { :server => "build.palaso.org" }
+
+def verbose(message)
+  puts message if $options[:verbose]
+end
+
+def debug(message)
+  puts "DEBUG: #{message}"
+end
 
 script = BuildUpdateScript.new("buildupdate.sh")
-options.merge!(script.options)
-
-puts options
+$options.merge!(script.options)
 
 OptionParser.new do |opts|
   opts.banner = "Usage: buildupdate.rb [options]"
   opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
-    options[:verbose] = v
+    $options[:verbose] = v
   end
 
   opts.on("-s", "--server [SERVER]", "Specify the TeamCity Server Hostname") do |s|
-    options[:server] = s
+    $options[:server] = s
   end
 
   # Really need to look up the build type based on environment
   opts.on("-b", "--build_type [BUILD_TYPE]", "Specify the BuildType in TeamCity") do |bt|
     abort("Invalid build_type: #{b}.  Should be bt[0-9]+") if b !~ /^bt[0-9]+/
-    options[:build_type] = bt
+    $options[:build_type] = bt
   end
 
   opts.on("-c", "--create", "Create a new buildupdate.sh file based on arguments")
 end.parse!
 
-v = options[:verbose]
+verbose("Options: #{$options}")
 
-server = options[:server]
-site_url = "http://#{server}/guestAuth/app/rest/7.0"
-site = RestClient::Resource.new(site_url) #, :headers => { :accept => "application/json"})
+server = $options[:server]
+rest_url = "http://#{server}/guestAuth/app/rest/7.0"
+rest_api = RestClient::Resource.new(rest_url) #, :headers => { :accept => "application/json"})
+repo_url = "http://#{server}/guestAuth/repository"
+repo_api = RestClient::Resource.new(repo_url)
 
-if options[:build_type].nil?
+if $options[:build_type].nil?
   # Lookup build_type based on project name and build name
-  project_name = os_specific?(:project, options)
+  project_name = os_specific?(:project, $options)
   abort("You need to specify project in buildupdate.sh!") if project_name.nil?
 
-  build_name = os_specific?(:build, options)
+  build_name = os_specific?(:build, $options)
   abort("You need to specify build or build.#{os} in buildupdate.sh!") if build_name.nil?
 
-  projects_xml = site["/projects"].get
+  projects_xml = rest_api["/projects"].get
   projects = TeamCityProjects.new(projects_xml)
   project_id = projects.ids[project_name]
   abort("Project '#{project_name}' not Found!\nPossible Names:\n  #{projects.names.values.join("\n  ")}") if project_id.nil?
 
-  builds_xml = site["/projects/id:#{project_id}/buildTypes"].get
+  builds_xml = rest_api["/projects/id:#{project_id}/buildTypes"].get
   builds = TeamCityBuilds.new(builds_xml)
   build_type = builds.ids[build_name]
   abort("Build '#{build_name}' not Found!\nPossible Names:\n  #{builds.names.values.join("\n  ")}") if build_type.nil?
+  verbose("Selected: project=#{project_name}, build_name=#{build_name} => build_type=#{build_type}")
 else
-  build_type = options[:build_type]
+  build_type = $options[:build_type]
+  verbose("Config: build_type=#{build_type}")
 end
 abort("You need to specify project/build or build_type in buildupdate.sh!") if build_type.nil?
 
-deps_xml = site["/buildTypes/id:#{build_type}/artifact-dependencies"].get
+
+deps_xml = rest_api["/buildTypes/id:#{build_type}/artifact-dependencies"].get
 ap deps_xml
 abort("BuildType '#{build_type}' not Found!") if deps_xml.nil?
 
@@ -218,11 +245,33 @@ end
 
 script.lines.push("\n# download artifact dependencies")
 script.lines.push("mkdir -p artifact_dependencies")
+script.lines.push("cd artifact_dependencies")
 deps.dependencies.each do |d|
+  ap d
   d.path_rules.each do |src,dst|
-    # For each src, create a REST call to download the artifact and then extract to destination
+    puts "src=#{src}, dst=#{dst}"
+    files = []
+    if src.glob?
+      ivy_xml = repo_api["/download/#{d.build_type}/#{d.revision_value}/teamcity-ivy.xml"].get
+      ivy = IvyArtifacts.new(ivy_xml)
+      puts "ivy.artifacts=#{ivy.artifacts}"
+      files.concat(ivy.artifacts.select { |a| File.fnmatch(src, a)})
+      puts "selected files=#{files}"
+    else
+      files.push(src)
+    end
 
-     #site[/]
+
+    curl = "curl -L"
+    files.each do |f|
+      script.lines.push "#{curl} -o #{dst}/#{f} #{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f}"
+    end
+
+
+    # For each src, create a REST call to download the artifact and then extract to destination
+    #script.lines.push("#{curl} -o #{d.build_type}.zip ${repo_url}/downloadAll/bt228/#{d.revisionValue}")
+    #script.lines.push("build_type=#{d.build_type}: src=#{src}, dst=#{dst}")
+   #site[/]
   end
 end
 
