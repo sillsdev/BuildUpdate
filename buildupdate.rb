@@ -147,12 +147,13 @@ end
 class BuildUpdateScript
   attr_accessor :header_lines, :options, :lines
   def initialize(path)
+    @path = path
     @header_lines = []
     @options = {}
     @lines = []
     if File.exist?(path)
       re = /#\s*([^=]+)=(.*)$/
-      File.open(path).each do |l|
+      File.open(@path, 'r').each do |l|
         break unless /^#/.match(l)
         @header_lines.push(l)
         m = re.match(l)
@@ -160,6 +161,13 @@ class BuildUpdateScript
           @options[m[1].to_sym] = m[2]
         end
       end
+    end
+  end
+
+  def update
+    File.open(@path, 'w') do |f|
+      f.puts(@header_lines)
+      f.puts(@lines)
     end
   end
 
@@ -306,8 +314,6 @@ end
 
 
 script.lines.push("\n# download artifact dependencies")
-script.lines.push("mkdir -p artifact_dependencies")
-script.lines.push("cd artifact_dependencies")
 deps.dependencies.each do |d|
   d.path_rules.each do |src,dst|
     files = []
@@ -322,6 +328,7 @@ deps.dependencies.each do |d|
 
     curl = "curl -L"
     files.each do |f|
+      script.lines.push "mkdir -p #{dst}"
       script.lines.push "#{curl} -o #{dst}/#{f} #{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f}"
     end
 
@@ -333,4 +340,4 @@ deps.dependencies.each do |d|
   end
 end
 
-puts script.to_s
+script.update
