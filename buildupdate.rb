@@ -101,6 +101,37 @@ class TeamCityBuilds
   end
 end
 
+class BuildType
+  attr_reader :project_name, :build_name, :url, :vcs_root_id
+  def initialize(xml)
+    parser = Nori.new(:convert_tags_to => lambda { |tag| tag.snakecase.to_sym })
+    build = parser.parse(xml)[:build_type]
+    @build_name = build[:@name]
+    @url = build[:@web_url]
+    @project_name = build[:project][:@name]
+    @vcs_root_id = build[:vcs_root_entries][:vcs_root_entry][:@id]
+  end
+end
+
+class VCSRoot
+  attr_reader :repository_path, :branch_name
+  def initialize(xml)
+    parser = Nori.new(:convert_tags_to => lambda { |tag| tag.snakecase.to_sym })
+    props = parser.parse(xml)[:vcs_root][:properties][:property]
+    props.each do |p|
+      name = p[:@name]
+      value = p[:@value]
+      case name
+      when "repositoryPath"
+        @repository_path = value
+      when "branchName"
+        @branch_name = value
+      end
+    end
+  end
+
+end
+
 class IvyArtifacts
   attr_reader :artifacts
   def initialize(xml)
@@ -164,14 +195,14 @@ def os_specific?(option, options)
   end
 end
 
-$options = { :server => "build.palaso.org" }
+$options = { :server => "build.palaso.org", :verbose => false}
 
 def verbose(message)
-  puts message if $options[:verbose]
+  $stderr.puts message if $options[:verbose]
 end
 
 def debug(message)
-  puts "DEBUG: #{message}"
+  $stderr.puts "DEBUG: #{message}"
 end
 
 script = BuildUpdateScript.new("buildupdate.sh")
@@ -230,7 +261,7 @@ abort("You need to specify project/build or build_type in buildupdate.sh!") if b
 
 
 deps_xml = rest_api["/buildTypes/id:#{build_type}/artifact-dependencies"].get
-ap deps_xml
+
 abort("BuildType '#{build_type}' not Found!") if deps_xml.nil?
 
 deps = ArtifactDependencies.new(deps_xml)
@@ -243,20 +274,47 @@ deps.dependencies.select { |dep| dep.clean_destination_directory }.each do |d|
   end
 end
 
+build_xml = rest_api["/buildTypes/id:#{build_type}"].get
+build = BuildType.new(build_xml)
+
+vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
+vcs = VCSRoot.new(vcs_xml)
+
+script.lines.push("\n"\
+    "#### Results ####\n"\
+    "# build: #{build.build_name} (#{build_type})\n"\
+    "# project: #{build.project_name}\n"\
+    "# URL: #{build.url}\n"\
+    "# VCS: #{vcs.repository_path} [#{vcs.branch_name}]\n"\
+    "# dependencies:")
+deps.dependencies.each_with_index do |d, i|
+  build_xml = rest_api["/buildTypes/id:#{d.build_type}"].get
+  build = BuildType.new(build_xml)
+
+  vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
+  vcs = VCSRoot.new(vcs_xml)
+
+  script.lines.push(
+  "# [#{i}] build: #{build.build_name} (#{d.build_type})\n"\
+  "#     project: #{build.project_name}\n"\
+  "#     URL: #{build.url}\n"\
+  "#     VCS: #{vcs.repository_path} [#{vcs.branch_name}]\n"\
+  "#     clean: #{d.clean_destination_directory}\n"\
+  "#     revision: #{d.revision_value}\n"\
+  "#     paths: #{d.path_rules}")
+end
+
+
 script.lines.push("\n# download artifact dependencies")
 script.lines.push("mkdir -p artifact_dependencies")
 script.lines.push("cd artifact_dependencies")
 deps.dependencies.each do |d|
-  ap d
   d.path_rules.each do |src,dst|
-    puts "src=#{src}, dst=#{dst}"
     files = []
     if src.glob?
       ivy_xml = repo_api["/download/#{d.build_type}/#{d.revision_value}/teamcity-ivy.xml"].get
       ivy = IvyArtifacts.new(ivy_xml)
-      puts "ivy.artifacts=#{ivy.artifacts}"
       files.concat(ivy.artifacts.select { |a| File.fnmatch(src, a)})
-      puts "selected files=#{files}"
     else
       files.push(src)
     end
