@@ -320,7 +320,8 @@ deps.dependencies.each do |d|
     if src.glob?
       ivy_xml = repo_api["/download/#{d.build_type}/#{d.revision_value}/teamcity-ivy.xml"].get
       ivy = IvyArtifacts.new(ivy_xml)
-      files.concat(ivy.artifacts.select { |a| File.fnmatch(src, a)})
+      matching_files = ivy.artifacts.select { |a| File.fnmatch(src, a, File::FNM_DOTMATCH)}
+      files.concat(matching_files)
     else
       files.push(src)
     end
@@ -328,8 +329,19 @@ deps.dependencies.each do |d|
 
     curl = "curl -L"
     files.each do |f|
-      script.lines.push "mkdir -p #{dst}"
-      script.lines.push "#{curl} -o #{dst}/#{f} #{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f}"
+
+      if src.end_with?("/**")
+              # e.g. f = foo/bar/baz.dll and src = foo/** => bar/baz.dll
+        dst_file = File.join(dst,f.sub(src.sub("**",""),""))
+        dst_dir = File.dirname(dst_file)
+      elsif src.include?("**")
+        abort("Can't handle recursive match that isn't at the end: #{src}")
+      else
+        dst_file = File.join(dst, f)
+        dst_dir = dst
+      end
+      script.lines.push "mkdir -p #{dst_dir}"
+      script.lines.push "#{curl} -o #{dst_file} #{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f}"
     end
 
 
