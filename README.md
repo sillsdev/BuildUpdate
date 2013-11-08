@@ -5,6 +5,16 @@ Summary
 -------
 Manages a bash script that update the current build environment based on TeamCity artifact dependencies.
 
+Install Requirements
+--------------------
+On Linux:
+1. sudo apt-get install ruby1.9.1 ruby1.9.1-dev libxml2-dev libxslt-dev
+2. sudo gem install bundler
+3. git clone http://github.com/chrisvire/BuildUpdate
+4. cd BuildUpdate
+5. bundle
+6. sudo bundle exec gem pristine nokogiri
+
 How to use
 ----------
 1. Create a buildupdate.sh script in your build directory with configuration.  
