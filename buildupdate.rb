@@ -29,6 +29,12 @@ class PropertiesObject
   end
 end
 
+# In cases were there maybe one or more sub-elements of an element, this makes sure
+# that it is consistent.
+def ensure_array_of_objects(obj)
+  obj.is_a?(Array) ? obj : [ obj ]
+end
+
 class ArtifactDependency
   attr_accessor :clean_destination_directory, :path_rules, :revision_name, :revision_value, :build_type
 
@@ -60,7 +66,7 @@ class ArtifactDependencies
   def initialize(xml)
     @dependencies = []
     parser = Nori.new(:convert_tags_to => lambda { |tag| tag.snakecase.to_sym })
-    deps = parser.parse(xml)[:artifact_dependencies][:artifact_dependency]
+    deps = ensure_array_of_objects( parser.parse(xml)[:artifact_dependencies][:artifact_dependency])
     deps.each do |d|
       props = d[:properties][:property]
       obj = ArtifactDependency.new(props)
@@ -91,7 +97,7 @@ class TeamCityBuilds
     @ids = {}
     @names = {}
     parser = Nori.new(:convert_tags_to => lambda { |tag| tag.snakecase.to_sym })
-    builds = parser.parse(xml)[:build_types][:build_type]
+    builds = ensure_array_of_objects(parser.parse(xml)[:build_types][:build_type])
     builds.each do |p|
       name = p[:@name]
       id = p[:@id]
@@ -109,7 +115,11 @@ class BuildType
     @build_name = build[:@name]
     @url = build[:@web_url]
     @project_name = build[:project][:@name]
-    @vcs_root_id = build[:vcs_root_entries][:vcs_root_entry][:@id]
+    begin
+      @vcs_root_id = build[:vcs_root_entries][:vcs_root_entry][:@id]
+    rescue
+      verbose("No VCS Root defined for project=#{@project_name}, build_name=#{@build_name}")
+    end
   end
 end
 
@@ -137,7 +147,7 @@ class IvyArtifacts
   def initialize(xml)
     @artifacts = []
     parser = Nori.new(:convert_tags_to => lambda { |tag| tag.snakecase.to_sym })
-    artifacts = parser.parse(xml)[:ivy_module][:publications][:artifact]
+    artifacts = ensure_array_of_objects(parser.parse(xml)[:ivy_module][:publications][:artifact])
     artifacts.each do |a|
       @artifacts.push("#{a[:@name]}.#{a[:@ext]}")
     end
@@ -285,16 +295,20 @@ end
 build_xml = rest_api["/buildTypes/id:#{build_type}"].get
 build = BuildType.new(build_xml)
 
-vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
-vcs = VCSRoot.new(vcs_xml)
+unless build.vcs_root_id.nil?
+  vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
+  vcs = VCSRoot.new(vcs_xml)
+end
 
 script.lines.push("\n"\
     "#### Results ####\n"\
     "# build: #{build.build_name} (#{build_type})\n"\
     "# project: #{build.project_name}\n"\
-    "# URL: #{build.url}\n"\
-    "# VCS: #{vcs.repository_path} [#{vcs.branch_name}]\n"\
-    "# dependencies:")
+    "# URL: #{build.url}\n")
+unless vcs.nil?
+  script.lines.push("# VCS: #{vcs.repository_path} [#{vcs.branch_name}]")
+end
+script.lines.push("# dependencies:")
 deps.dependencies.each_with_index do |d, i|
   build_xml = rest_api["/buildTypes/id:#{d.build_type}"].get
   build = BuildType.new(build_xml)
