@@ -9,7 +9,7 @@ Linux Install Requirements
 --------------------
 1. sudo apt-get install ruby1.9.1 ruby1.9.1-dev libxml2-dev libxslt-dev
 2. sudo gem install bundler
-3. git clone http://github.com/chrisvire/BuildUpdate
+3. git clone https://github.com/chrisvire/BuildUpdate
 4. cd BuildUpdate
 5. bundle install
 6. sudo bundle exec gem pristine nokogiri
