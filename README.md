@@ -15,6 +15,13 @@ Ubuntu 12.04 Install Requirements
 5. bundle install
 6. sudo bundle exec gem pristine nokogiri
 
+Windows Install Requirements
+1. install Ruby (http://rubyinstaller.org/downloads/)
+2. gem install bundler
+3. git clone https://github.com/chrisvire/BuildUpdate
+4. cd BuildUpdate
+3. bundle install
+
 
 How to use
 ----------
