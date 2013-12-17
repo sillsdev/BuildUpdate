@@ -7,17 +7,17 @@ Manages a bash script that update the current build environment based on TeamCit
 
 Ubuntu 12.04 Install Requirements
 --------------------
-1. sudo apt-get install ruby1.9.1 ruby1.9.1-dev libxml2-dev libxslt-dev
-2. sudo update-alternatives --config ruby (and select ruby 1.9.1)
-2. sudo gem install bundler
-3. git clone https://github.com/chrisvire/BuildUpdate
-4. cd BuildUpdate
-5. bundle install
-6. sudo bundle exec gem pristine nokogiri
+1. `sudo apt-get install ruby1.9.1 ruby1.9.1-dev libxml2-dev libxslt-dev`
+2. `sudo update-alternatives --config ruby (and select ruby 1.9.1)`
+2. `sudo gem install bundler`
+3. `git clone https://github.com/chrisvire/BuildUpdate`
+4. `cd BuildUpdate`
+5. `bundle install`
+6. `sudo bundle exec gem pristine nokogiri` (this removes a warning about library incompatibility)
 
 Windows Install Requirements
 ----------------------------
-1. You need a way to run shell scripts, e.g. [Cygwin](http://www.cygwin.com/)
+1. You need a way to run shell scripts, e.g. [Cygwin](http://www.cygwin.com/) or [msysgit](https://code.google.com/p/msysgit/) (which includes Git Bash)
 2. install Ruby (http://rubyinstaller.org/downloads/)
 3. `gem install bundler`
 4. `git clone https://github.com/chrisvire/BuildUpdate`
