@@ -35,7 +35,7 @@ When you change the dependencies
 ----------
 1. Run `buildupdate.rb`, as in
 
-`c:\dev\bloom> c:\dev\bin\BuildUpdate\buildupdate.rb buildupdate.sh`
+`c:\dev\bloom> c:\dev\bin\BuildUpdate\buildupdate.rb -f buildupdate.sh`
 
 The updated version of buildupdate.sh will be part of your commit.
 
