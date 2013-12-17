@@ -155,7 +155,7 @@ class IvyArtifacts
 end
 
 class BuildUpdateScript
-  attr_accessor :header_lines, :options, :lines
+  attr_accessor :header_lines, :options, :lines, :path
   def initialize(path)
     @path = path
     @header_lines = []
@@ -171,6 +171,19 @@ class BuildUpdateScript
           @options[m[1].to_sym] = m[2]
         end
       end
+    end
+  end
+
+  def set_header(server, project, build, build_type)
+    @header_lines = [
+        "#!/bin/bash",
+        "# server=#{server}"
+    ]
+    if project.nil? && build.nil?
+      @header_lines.push("# build_type=#{build_type}")
+    else
+      @header_lines.push("# project=#{project}")
+      @header_lines.push("# build=#{build}")
     end
   end
 
@@ -213,7 +226,7 @@ def os_specific?(option, options)
   end
 end
 
-$options = { :server => "build.palaso.org", :verbose => false}
+$options = { :server => "build.palaso.org", :verbose => false, :file => "buildupdate.sh"}
 
 def verbose(message)
   $stderr.puts message if $options[:verbose]
@@ -223,27 +236,43 @@ def debug(message)
   $stderr.puts "DEBUG: #{message}"
 end
 
-script = BuildUpdateScript.new("buildupdate.sh")
-$options.merge!(script.options)
 
+cmd_options = {}
 OptionParser.new do |opts|
   opts.banner = "Usage: buildupdate.rb [options]"
   opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
-    $options[:verbose] = v
+    cmd_options[:verbose] = v
   end
 
   opts.on("-s", "--server [SERVER]", "Specify the TeamCity Server Hostname") do |s|
-    $options[:server] = s
+    cmd_options[:server] = s
+  end
+
+  opts.on("-p", "--project [PROJECT]", "Specify the Project in TeamCity") do |p|
+    cmd_options[:project] = p
+  end
+
+  opts.on("-b", "--build [BUILD]", "Specify the Build within a Project in TeamCity") do |b|
+    cmd_options[:build] = b
   end
 
   # Really need to look up the build type based on environment
-  opts.on("-b", "--build_type [BUILD_TYPE]", "Specify the BuildType in TeamCity") do |bt|
-    abort("Invalid build_type: #{b}.  Should be bt[0-9]+") if b !~ /^bt[0-9]+/
-    $options[:build_type] = bt
+  opts.on("-t", "--build_type [BUILD_TYPE]", "Specify the BuildType in TeamCity") do |t|
+    abort("Invalid build_type: #{t}.  Should be bt[0-9]+") if t !~ /^bt[0-9]+/
+    cmd_options[:build_type] = t
   end
 
-  opts.on("-c", "--create", "Create a new buildupdate.sh file based on arguments")
+  opts.on("-f", "--file [SHELL_FILE]", "Specify the shell file to update (default: buildupdate.sh") do |f|
+    abort("Invalid filename: #{f}.  Should end with .sh") if f !~ /\.sh$/
+    # This is a special one.  We want to override where other options are read from...
+    $options[:file] = f
+  end
 end.parse!
+
+
+script = BuildUpdateScript.new($options[:file])
+$options.merge!(script.options)
+$options.merge!(cmd_options)
 
 verbose("Options: #{$options}")
 
@@ -254,20 +283,22 @@ repo_url = "http://#{server}/guestAuth/repository"
 repo_api = RestClient::Resource.new(repo_url)
 
 if $options[:build_type].nil?
-  # Lookup build_type based on project name and build name
-  project_name = os_specific?(:project, $options)
-  abort("You need to specify project in buildupdate.sh!") if project_name.nil?
-
-  build_name = os_specific?(:build, $options)
-  abort("You need to specify build or build.#{os} in buildupdate.sh!") if build_name.nil?
-
   projects_xml = rest_api["/projects"].get
   projects = TeamCityProjects.new(projects_xml)
+
+  # Lookup build_type based on project name and build name
+  project_name = os_specific?(:project, $options)
+  abort("You need to specify project!\nPossible Names:\n  #{projects.names.values.join("\n  ")}") if project_name.nil?
+
   project_id = projects.ids[project_name]
   abort("Project '#{project_name}' not Found!\nPossible Names:\n  #{projects.names.values.join("\n  ")}") if project_id.nil?
 
   builds_xml = rest_api["/projects/id:#{project_id}/buildTypes"].get
   builds = TeamCityBuilds.new(builds_xml)
+
+  build_name = os_specific?(:build, $options)
+  abort("You need to specify build!\nPossible Name:\n  #{builds.names.values.join("\n  ")}") if build_name.nil?
+
   build_type = builds.ids[build_name]
   abort("Build '#{build_name}' not Found!\nPossible Names:\n  #{builds.names.values.join("\n  ")}") if build_type.nil?
   verbose("Selected: project=#{project_name}, build_name=#{build_name} => build_type=#{build_type}")
@@ -275,7 +306,7 @@ else
   build_type = $options[:build_type]
   verbose("Config: build_type=#{build_type}")
 end
-abort("You need to specify project/build or build_type in buildupdate.sh!") if build_type.nil?
+abort("You need to specify project/build or build_type in #{script.path}!") if build_type.nil?
 
 
 deps_xml = rest_api["/buildTypes/id:#{build_type}/artifact-dependencies"].get
@@ -366,4 +397,5 @@ deps.dependencies.each do |d|
   end
 end
 
+script.set_header($options[:server], $options[:project], $options[:build], $options[:build_type])
 script.update
