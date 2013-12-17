@@ -244,25 +244,25 @@ OptionParser.new do |opts|
     cmd_options[:verbose] = v
   end
 
-  opts.on("-s", "--server [SERVER]", "Specify the TeamCity Server Hostname") do |s|
+  opts.on("-s", "--server SERVER", "Specify the TeamCity Server Hostname") do |s|
     cmd_options[:server] = s
   end
 
-  opts.on("-p", "--project [PROJECT]", "Specify the Project in TeamCity") do |p|
+  opts.on("-p", "--project PROJECT", "Specify the Project in TeamCity") do |p|
     cmd_options[:project] = p
   end
 
-  opts.on("-b", "--build [BUILD]", "Specify the Build within a Project in TeamCity") do |b|
+  opts.on("-b", "--build BUILD", "Specify the Build within a Project in TeamCity") do |b|
     cmd_options[:build] = b
   end
 
   # Really need to look up the build type based on environment
-  opts.on("-t", "--build_type [BUILD_TYPE]", "Specify the BuildType in TeamCity") do |t|
+  opts.on("-t", "--build_type BUILD_TYPE", "Specify the BuildType in TeamCity") do |t|
     abort("Invalid build_type: #{t}.  Should be bt[0-9]+") if t !~ /^bt[0-9]+/
     cmd_options[:build_type] = t
   end
 
-  opts.on("-f", "--file [SHELL_FILE]", "Specify the shell file to update (default: buildupdate.sh") do |f|
+  opts.on("-f", "--file SHELL_FILE", "Specify the shell file to update (default: buildupdate.sh") do |f|
     abort("Invalid filename: #{f}.  Should end with .sh") if f !~ /\.sh$/
     # This is a special one.  We want to override where other options are read from...
     $options[:file] = f
