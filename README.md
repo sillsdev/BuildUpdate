@@ -17,18 +17,31 @@ Ubuntu 12.04 Install Requirements
 
 Windows Install Requirements
 ----------------------------
-1. install Ruby (http://rubyinstaller.org/downloads/)
-2. gem install bundler
-3. git clone https://github.com/chrisvire/BuildUpdate
-4. cd BuildUpdate
-3. bundle install
+1. You need a way to run shell scripts, e.g. [Cygwin](http://www.cygwin.com/)
+2. install Ruby (http://rubyinstaller.org/downloads/)
+3. `gem install bundler`
+4. `git clone https://github.com/chrisvire/BuildUpdate`
+5. `cd BuildUpdate`
+6. `bundle install`
 
 
-How to use
+Create the shell script
 ----------
-1. Create a buildupdate.sh script in your build directory with configuration.  
-2. Run the buildupdate.rb script to update buildupdate.sh with all of the calls to update the current build environment.  
-3. Then commit the buildupdate.sh script to source control.
+1. Create a buildupdate.sh script in your build directory with configuration (see below).  
+2. Run the buildupdate.rb script to update buildupdate.sh with all of the calls to update the current build environment.
+3. Commit the buildupdate.sh script to source control.
+
+When you change the dependencies
+----------
+1. Run `buildupdate.rb`, as in
+
+`c:\dev\bloom> c:\dev\bin\BuildUpdate\buildupdate.rb buildupdate.sh`
+
+The updated version of buildupdate.sh will be part of your commit.
+
+When you change branches
+----------
+1. Run `buildupdate.sh` to get the correct dependencies for that branch.
 
 File format
 -----------
@@ -39,9 +52,9 @@ The configuration is in comments at the beginning of the file.  Use the variable
 * build: the name of the TeamCity build configuration
 * build_type: the internal TeamCity buildType id
 
-You can use project/build or build_type.  The script will resolve project/build to build_type by querying TeamCity.
+You can either specify `project` & `build`, or specify `build_type`.
 
-Variable can be specified by OS (windows, linux, osx, unix).  The most specific will be used.
+You can declare different values for these parameters for each OS (windows, linux, osx, unix).  The most specific will be used. For example:
 
 ```bash
 #!/bin/bash
