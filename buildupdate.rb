@@ -3,6 +3,7 @@ require 'rubygems'
 require 'rest_client'
 require 'optparse'
 require 'nori'
+require 'set'
 
 require 'awesome_print'
 
@@ -226,7 +227,7 @@ def os_specific?(option, options)
   end
 end
 
-$options = { :server => "build.palaso.org", :verbose => false, :file => "buildupdate.sh"}
+$options = { :server => "build.palaso.org", :verbose => false, :file => "buildupdate.sh", :root_dir => "."}
 
 def verbose(message)
   $stderr.puts message if $options[:verbose]
@@ -256,6 +257,10 @@ OptionParser.new do |opts|
     cmd_options[:build] = b
   end
 
+  opts.on("-r", "--root_dir ROOT", "Specify the root dir to execute shell commands") do |r|
+    cmd_options[:root_dir] = r
+  end
+
   # Really need to look up the build type based on environment
   opts.on("-t", "--build_type BUILD_TYPE", "Specify the BuildType in TeamCity") do |t|
     abort("Invalid build_type: #{t}.  Should be bt[0-9]+") if t !~ /^bt[0-9]+/
@@ -273,6 +278,7 @@ end.parse!
 script = BuildUpdateScript.new($options[:file])
 $options.merge!(script.options)
 $options.merge!(cmd_options)
+root_dir = $options[:root_dir]
 
 verbose("Options: #{$options}")
 
@@ -319,7 +325,7 @@ abort("Dependencies not found!") if deps.nil?
 deps.dependencies.select { |dep| dep.clean_destination_directory }.each do |d|
   script.lines.push("# clean destination directories")
   d.path_rules.each do |src,dst|
-    script.lines.push("rm -rf #{dst}")
+    script.lines.push("rm -rf #{root_dir}/#{dst}")
   end
 end
 
@@ -358,7 +364,8 @@ deps.dependencies.each_with_index do |d, i|
 end
 
 
-script.lines.push("\n# download artifact dependencies")
+dst_dirs = Set.new
+dst_files = []
 deps.dependencies.each do |d|
   d.path_rules.each do |src,dst|
     files = []
@@ -370,7 +377,6 @@ deps.dependencies.each do |d|
     else
       files.push(src)
     end
-
 
     curl = "curl -L"
     files.each do |f|
@@ -385,8 +391,8 @@ deps.dependencies.each do |d|
         dst_file = File.join(dst, f)
         dst_dir = dst
       end
-      script.lines.push "mkdir -p #{dst_dir}"
-      script.lines.push "#{curl} -o #{dst_file} #{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f}"
+      dst_dirs << dst_dir
+      dst_files << [dst_file, "#{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f}"]
     end
 
 
@@ -395,6 +401,16 @@ deps.dependencies.each do |d|
     #script.lines.push("build_type=#{d.build_type}: src=#{src}, dst=#{dst}")
    #site[/]
   end
+end
+
+script.lines.push("\n# make sure output directories exist")
+dst_dirs.each do |dir|
+  script.lines.push "mkdir -p #{root_dir}/#{dir}"
+end
+
+script.lines.push("\n# download artifact dependencies")
+dst_files.each do |dst|
+  script.lines.push "curl -L -o #{root_dir}/#{dst[0]} #{dst[1]}"
 end
 
 script.set_header($options[:server], $options[:project], $options[:build], $options[:build_type])
