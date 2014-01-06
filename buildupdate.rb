@@ -156,12 +156,13 @@ class IvyArtifacts
 end
 
 class BuildUpdateScript
-  attr_accessor :header_lines, :options, :lines, :path
+  attr_accessor :header_lines, :options, :lines, :path, :root
   def initialize(path)
     @path = path
     @header_lines = []
     @options = {}
     @lines = []
+    @root = ""
     if File.exist?(path)
       re = /#\s*([^=]+)=(.*)$/
       File.open(@path, 'r').each do |l|
@@ -175,7 +176,7 @@ class BuildUpdateScript
     end
   end
 
-  def set_header(server, project, build, build_type)
+  def set_header(server, project, build, build_type, root_dir)
     @header_lines = [
         "#!/bin/bash",
         "# server=#{server}"
@@ -186,6 +187,7 @@ class BuildUpdateScript
       @header_lines.push("# project=#{project}")
       @header_lines.push("# build=#{build}")
     end
+    @header_lines.push("# root_dir=#{root_dir}") unless root_dir.nil?
   end
 
   def update
@@ -413,5 +415,5 @@ dst_files.each do |dst|
   script.lines.push "curl -L -o #{root_dir}/#{dst[0]} #{dst[1]}"
 end
 
-script.set_header($options[:server], $options[:project], $options[:build], $options[:build_type])
+script.set_header($options[:server], $options[:project], $options[:build], $options[:build_type], $options[:root_dir])
 script.update
