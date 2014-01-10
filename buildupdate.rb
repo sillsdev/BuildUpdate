@@ -369,8 +369,8 @@ end
 dst_dirs = Set.new
 dst_files = []
 deps.dependencies.each do |d|
-  d.path_rules.each do |src,dst|
-    src.gsub!("\\", "/")
+  d.path_rules.each do |key,dst|
+    src = key.gsub("\\", "/")
     dst.gsub!("\\", "/")
     files = []
     if src.glob?
