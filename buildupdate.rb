@@ -200,6 +200,11 @@ class ScriptActions
       { m[1].strip.to_sym => m[2].strip}
     end
   end
+
+  def curl(src, dst)
+    "curl -L -z #{dst} -o #{dst} #{src}"
+  end
+
 end
 
 class BashScriptActions < ScriptActions
@@ -224,7 +229,7 @@ class BashScriptActions < ScriptActions
   end
 
   def download(src,dst)
-    "curl -L -o #{unix_path(dst)} #{src}"
+    curl(src, unix_path(dst))
   end
 
 
@@ -256,7 +261,7 @@ class CmdScriptActions < ScriptActions
   end
 
   def download(src,dst)
-    "curl -L -o #{windows_path(dst)} #{src}"
+    curl(src, windows_path(dst))
   end
 
   register_script :bat
