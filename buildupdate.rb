@@ -119,7 +119,7 @@ class BuildType
     begin
       @vcs_root_id = build[:vcs_root_entries][:vcs_root_entry][:@id]
     rescue
-      verbose("No VCS Root defined for project=#{@project_name}, build_name=#{@build_name}")
+      verbose("Note: No VCS Root defined for project=#{@project_name}, build_name=#{@build_name}")
     end
   end
 end
@@ -352,17 +352,20 @@ deps.dependencies.each_with_index do |d, i|
   build_xml = rest_api["/buildTypes/id:#{d.build_type}"].get
   build = BuildType.new(build_xml)
 
-  vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
-  vcs = VCSRoot.new(vcs_xml)
-
+  
   script.lines.push(
   "# [#{i}] build: #{build.build_name} (#{d.build_type})\n"\
   "#     project: #{build.project_name}\n"\
   "#     URL: #{build.url}\n"\
-  "#     VCS: #{vcs.repository_path} [#{vcs.branch_name}]\n"\
   "#     clean: #{d.clean_destination_directory}\n"\
   "#     revision: #{d.revision_value}\n"\
   "#     paths: #{d.path_rules}")
+  
+  unless build.vcs_root_id.nil?
+    vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
+    vcs = VCSRoot.new(vcs_xml)
+    script.lines.push("#     VCS: #{vcs.repository_path} [#{vcs.branch_name}]\n") 
+  end
 end
 
 
