@@ -370,6 +370,8 @@ dst_dirs = Set.new
 dst_files = []
 deps.dependencies.each do |d|
   d.path_rules.each do |src,dst|
+    src.gsub!("\\", "/")
+    dst.gsub!("\\", "/")
     files = []
     if src.glob?
       ivy_xml = repo_api["/download/#{d.build_type}/#{d.revision_value}/teamcity-ivy.xml"].get
