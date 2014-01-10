@@ -119,7 +119,7 @@ class BuildType
     begin
       @vcs_root_id = build[:vcs_root_entries][:vcs_root_entry][:@id]
     rescue
-      verbose("No VCS Root defined for project=#{@project_name}, build_name=#{@build_name}")
+      verbose("Note: No VCS Root defined for project=#{@project_name}, build_name=#{@build_name}")
     end
   end
 end
@@ -155,39 +155,148 @@ class IvyArtifacts
   end
 end
 
+class ScriptActions
+  @@subclasses = {}
+  def self.create type
+    c = @@subclasses[type.to_sym]
+    if c
+      c.new
+    else
+      raise "Bad script file type: #{type}"
+    end
+  end
+
+  def self.register_script name
+    @@subclasses[name] = self
+  end
+
+  def file_header
+    ""
+  end
+
+  def comment_prefix
+    raise "Not Implemented!"
+  end
+
+  def comment(str)
+     comment_prefix + " " + str
+  end
+
+  def mkdir(dir)
+    raise "Not Implemented!"
+  end
+
+  def rmdir(dir)
+    raise "Not Implemented!"
+  end
+
+  def variable(var, value)
+    comment_prefix + " #{var}=#{value}"
+  end
+
+  def parse_variable(line)
+    m = /#{comment_prefix}([^=]+)=(.*)$/.match(line)
+    unless m.nil? || m.length < 2
+      { m[1].strip.to_sym => m[2].strip}
+    end
+  end
+end
+
+class BashScriptActions < ScriptActions
+  def file_header
+    "#!/bin/bash"
+  end
+
+  def comment_prefix
+    "#"
+  end
+
+  def unix_path(dir)
+    dir.gsub('\\','/')
+  end
+
+  def mkdir(dir)
+    "mkdir -p #{unix_path(dir)}"
+  end
+
+  def rmdir(dir)
+    "rm -rf #{unix_path(dir)}"
+  end
+
+  def download(src,dst)
+    "curl -L -o #{unix_path(dst)} #{src}"
+  end
+
+
+  register_script :sh
+end
+
+class CmdScriptActions < ScriptActions
+  def file_header
+    "@echo off"
+  end
+
+  def comment_prefix
+    "REM"
+  end
+
+  def windows_path(dir)
+    dir.gsub('/', '\\')
+  end
+
+  def mkdir(dir)
+    win_dir = windows_path(dir)
+    "if not exist #{win_dir}\\nul mkdir #{win_dir}"
+  end
+
+  def rmdir(dir)
+    win_dir = windows_path(dir)
+    "del /f/s/q #{win_dir}"
+    "rmdir #{win_dir}"
+  end
+
+  def download(src,dst)
+    "curl -L -o #{windows_path(dst)} #{src}"
+  end
+
+  register_script :bat
+end
+
 class BuildUpdateScript
-  attr_accessor :header_lines, :options, :lines, :path, :root
+  attr_accessor :header_lines, :options, :lines, :path, :root, :actions
   def initialize(path)
+    type = path.split('.')[-1]
+    @actions = ScriptActions.create(type)
     @path = path
     @header_lines = []
     @options = {}
     @lines = []
     @root = ""
     if File.exist?(path)
-      re = /#\s*([^=]+)=(.*)$/
-      File.open(@path, 'r').each do |l|
-        break unless /^#/.match(l)
-        @header_lines.push(l)
-        m = re.match(l)
-        unless m.nil? || m.length < 2
-          @options[m[1].to_sym] = m[2]
-        end
+      f = File.open(@path, 'r')
+      line = f.gets.chomp
+      raise "Invalid Header: #{line}\nShould be: #{@actions.file_header}" unless line == @actions.file_header
+      while (line = f.gets)
+        variable = @actions.parse_variable(line)
+        break if variable.nil?
+        @header_lines.push(line)
+        @options.merge!(variable)
       end
     end
   end
 
   def set_header(server, project, build, build_type, root_dir)
     @header_lines = [
-        "#!/bin/bash",
-        "# server=#{server}"
+        @actions.file_header,
+        @actions.variable("server", server)
     ]
     if project.nil? && build.nil?
-      @header_lines.push("# build_type=#{build_type}")
+      @header_lines.push(@actions.variable("build_type",build_type))
     else
-      @header_lines.push("# project=#{project}")
-      @header_lines.push("# build=#{build}")
+      @header_lines.push(@actions.variable("project",project))
+      @header_lines.push(@actions.variable("build", build))
     end
-    @header_lines.push("# root_dir=#{root_dir}") unless root_dir.nil?
+    @header_lines.push(@actions.variable("root_dir", root_dir)) unless root_dir.nil?
   end
 
   def update
@@ -270,15 +379,17 @@ OptionParser.new do |opts|
   end
 
   opts.on("-f", "--file SHELL_FILE", "Specify the shell file to update (default: buildupdate.sh") do |f|
-    abort("Invalid filename: #{f}.  Should end with .sh") if f !~ /\.sh$/
     # This is a special one.  We want to override where other options are read from...
     $options[:file] = f
   end
 end.parse!
 
 
-script = BuildUpdateScript.new($options[:file])
-$options.merge!(script.options)
+$script = BuildUpdateScript.new($options[:file])
+def comment(str)
+  $script.actions.comment(str)
+end
+$options.merge!($script.options)
 $options.merge!(cmd_options)
 root_dir = $options[:root_dir]
 
@@ -314,7 +425,7 @@ else
   build_type = $options[:build_type]
   verbose("Config: build_type=#{build_type}")
 end
-abort("You need to specify project/build or build_type in #{script.path}!") if build_type.nil?
+abort("You need to specify project/build or build_type in #{$script.path}!") if build_type.nil?
 
 
 deps_xml = rest_api["/buildTypes/id:#{build_type}/artifact-dependencies"].get
@@ -325,9 +436,9 @@ deps = ArtifactDependencies.new(deps_xml)
 abort("Dependencies not found!") if deps.nil?
 
 deps.dependencies.select { |dep| dep.clean_destination_directory }.each do |d|
-  script.lines.push("# clean destination directories")
+  $script.lines.push(comment("clean destination directories"))
   d.path_rules.each do |src,dst|
-    script.lines.push("rm -rf #{root_dir}/#{dst}")
+    $script.lines.push($script.actions.rmdir("#{root_dir}/#{dst}"))
   end
 end
 
@@ -339,30 +450,37 @@ unless build.vcs_root_id.nil?
   vcs = VCSRoot.new(vcs_xml)
 end
 
-script.lines.push("\n"\
-    "#### Results ####\n"\
-    "# build: #{build.build_name} (#{build_type})\n"\
-    "# project: #{build.project_name}\n"\
-    "# URL: #{build.url}\n")
+$script.lines.push("")
+[
+    "*** Results ***",
+    "build: #{build.build_name} (#{build_type})",
+    "project: #{build.project_name}",
+    "URL: #{build.url}"
+].each { |line| $script.lines.push(comment(line)) }
+
 unless vcs.nil?
-  script.lines.push("# VCS: #{vcs.repository_path} [#{vcs.branch_name}]")
+  $script.lines.push(comment("VCS: #{vcs.repository_path} [#{vcs.branch_name}]"))
 end
-script.lines.push("# dependencies:")
+
+$script.lines.push(comment("dependencies:"))
 deps.dependencies.each_with_index do |d, i|
   build_xml = rest_api["/buildTypes/id:#{d.build_type}"].get
   build = BuildType.new(build_xml)
 
-  vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
-  vcs = VCSRoot.new(vcs_xml)
+  [
+    "[#{i}] build: #{build.build_name} (#{d.build_type})",
+    "    project: #{build.project_name}",
+    "    URL: #{build.url}",
+    "    clean: #{d.clean_destination_directory}",
+    "    revision: #{d.revision_value}",
+    "    paths: #{d.path_rules}"
+  ].each { |line| $script.lines.push(comment(line)) }
 
-  script.lines.push(
-  "# [#{i}] build: #{build.build_name} (#{d.build_type})\n"\
-  "#     project: #{build.project_name}\n"\
-  "#     URL: #{build.url}\n"\
-  "#     VCS: #{vcs.repository_path} [#{vcs.branch_name}]\n"\
-  "#     clean: #{d.clean_destination_directory}\n"\
-  "#     revision: #{d.revision_value}\n"\
-  "#     paths: #{d.path_rules}")
+  unless build.vcs_root_id.nil?
+    vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
+    vcs = VCSRoot.new(vcs_xml)
+    $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{vcs.branch_name}]"))
+  end
 end
 
 
@@ -380,7 +498,6 @@ deps.dependencies.each do |d|
       files.push(src)
     end
 
-    curl = "curl -L"
     files.each do |f|
 
       if src.end_with?("/**")
@@ -394,26 +511,22 @@ deps.dependencies.each do |d|
         dst_dir = dst
       end
       dst_dirs << dst_dir
-      dst_files << [dst_file, "#{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f}"]
+      dst_files << ["#{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f}", "#{root_dir}/#{dst_file}"]
     end
-
-
-    # For each src, create a REST call to download the artifact and then extract to destination
-    #script.lines.push("#{curl} -o #{d.build_type}.zip ${repo_url}/downloadAll/bt228/#{d.revisionValue}")
-    #script.lines.push("build_type=#{d.build_type}: src=#{src}, dst=#{dst}")
-   #site[/]
   end
 end
 
-script.lines.push("\n# make sure output directories exist")
+$script.lines.push("")
+$script.lines.push(comment("make sure output directories exist"))
 dst_dirs.each do |dir|
-  script.lines.push "mkdir -p #{root_dir}/#{dir}"
+  $script.lines.push($script.actions.mkdir("#{root_dir}/#{dir}"))
 end
 
-script.lines.push("\n# download artifact dependencies")
-dst_files.each do |dst|
-  script.lines.push "curl -L -o #{root_dir}/#{dst[0]} #{dst[1]}"
+$script.lines.push("")
+$script.lines.push(comment("download artifact dependencies"))
+dst_files.each do |pair|
+  $script.lines.push($script.actions.download(pair[0], pair[1]))
 end
 
-script.set_header($options[:server], $options[:project], $options[:build], $options[:build_type], $options[:root_dir])
-script.update
+$script.set_header($options[:server], $options[:project], $options[:build], $options[:build_type], $options[:root_dir])
+$script.update
