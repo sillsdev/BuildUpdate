@@ -109,18 +109,36 @@ class TeamCityBuilds
 end
 
 class BuildType
-  attr_reader :project_name, :build_name, :url, :vcs_root_id
+  attr_reader :project_name, :build_name, :url, :vcs_root_id, :parameters
   def initialize(xml)
     parser = Nori.new(:convert_tags_to => lambda { |tag| tag.snakecase.to_sym })
     build = parser.parse(xml)[:build_type]
     @build_name = build[:@name]
     @url = build[:@web_url]
     @project_name = build[:project][:@name]
+    @parameters = {}
+
+    begin
+      parameters = build[:parameters][:property]
+      parameters.each do |p|
+        name = p[:@name]
+        value = p[:@value]
+        @parameters[name] = value
+      end
+    rescue
+    end
     begin
       @vcs_root_id = build[:vcs_root_entries][:vcs_root_entry][:@id]
     rescue
       verbose("Note: No VCS Root defined for project=#{@project_name}, build_name=#{@build_name}")
     end
+  end
+  def resolve(str)
+    if str =~ /%[^%]+%/
+      key = str.gsub(/%/,"")
+      str = @parameters[key]
+    end
+    str
   end
 end
 
@@ -133,6 +151,10 @@ class VCSRoot
       name = p[:@name]
       value = p[:@value]
       case name
+      when "url"
+        @repository_path = value
+      when "branch"
+        @branch_name = value
       when "repositoryPath"
         @repository_path = value
       when "branchName"
@@ -451,7 +473,9 @@ build_xml = rest_api["/buildTypes/id:#{build_type}"].get
 build = BuildType.new(build_xml)
 
 unless build.vcs_root_id.nil?
-  vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
+  req = "/vcs-roots/id:#{build.vcs_root_id}"
+  vcs_xml = rest_api[req].get
+  verbose("VCS req:#{req}\nxml:#{vcs_xml}")
   vcs = VCSRoot.new(vcs_xml)
 end
 
@@ -464,7 +488,7 @@ $script.lines.push("")
 ].each { |line| $script.lines.push(comment(line)) }
 
 unless vcs.nil?
-  $script.lines.push(comment("VCS: #{vcs.repository_path} [#{vcs.branch_name}]"))
+  $script.lines.push(comment("VCS: #{vcs.repository_path} [#{build.resolve(vcs.branch_name)}]"))
 end
 
 $script.lines.push(comment("dependencies:"))
@@ -484,7 +508,7 @@ deps.dependencies.each_with_index do |d, i|
   unless build.vcs_root_id.nil?
     vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
     vcs = VCSRoot.new(vcs_xml)
-    $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{vcs.branch_name}]"))
+    $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{build.resolve(vcs.branch_name)}]"))
   end
 end
 
