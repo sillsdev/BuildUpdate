@@ -196,6 +196,10 @@ class ScriptActions
     ""
   end
 
+  def functions
+    ""
+  end
+
   def comment_prefix
     raise "Not Implemented!"
   end
@@ -223,8 +227,12 @@ class ScriptActions
     end
   end
 
-  def curl(src, dst)
-    "curl -L -z #{dst} -o #{dst} #{src}"
+  def curl_update(src, dst)
+    "curl -# -L -z #{dst} -o #{dst} #{src}"
+  end
+
+  def curl_replace(src, dst)
+    "curl -# -L -o #{dst} #{src}"
   end
 
 end
@@ -234,12 +242,31 @@ class BashScriptActions < ScriptActions
     "#!/bin/bash"
   end
 
+  def functions
+    <<-eos
+copy_curl() {
+  echo "$2 <= $1"
+  if [ -e "$2" ]
+  then
+    #{curl_update('$1', '$2')}
+  else
+    #{curl_replace('$1', '$2')}
+  fi
+}
+    eos
+  end
+
   def comment_prefix
     "#"
   end
 
   def unix_path(dir)
-    dir.gsub('\\','/')
+    dir.gsub!('\\','/')
+    unless dir[/\s+/].nil?
+      dir = "\"#{dir}\""
+    end
+
+    return dir
   end
 
   def mkdir(dir)
@@ -251,9 +278,8 @@ class BashScriptActions < ScriptActions
   end
 
   def download(src,dst)
-    curl(src, unix_path(dst))
+    "copy_curl #{src} #{unix_path(dst)}"
   end
-
 
   register_script :sh
 end
@@ -263,12 +289,30 @@ class CmdScriptActions < ScriptActions
     "@echo off"
   end
 
+  def functions
+    curl = curl("$~1", "$~2")
+    <<-eos
+:copy_curl
+echo "$~2 <= $~1"
+if exist $~2 (
+#{curl_update('$~1', '$~2')}
+) else (
+#{curl_replace('$~1', '$~2')}
+:goto:eof
+    eos
+  end
+
   def comment_prefix
     "REM"
   end
 
   def windows_path(dir)
-    dir.gsub('/', '\\')
+    dir.gsub!('/', '\\')
+    unless dir[/\s+/].nil?
+      dir = "\"#{dir}\""
+    end
+
+    return dir
   end
 
   def mkdir(dir)
@@ -283,7 +327,7 @@ class CmdScriptActions < ScriptActions
   end
 
   def download(src,dst)
-    curl(src, windows_path(dst))
+    "copy_curl #{src} #{windows_path(dst)}"
   end
 
   register_script :bat
@@ -329,6 +373,8 @@ class BuildUpdateScript
   def update
     File.open(@path, 'w') do |f|
       f.puts(@header_lines)
+      f.puts("\n" + @actions.comment("*** Functions ***"))
+      f.puts(@actions.functions)
       f.puts(@lines)
     end
   end
