@@ -196,7 +196,11 @@ class ScriptActions
     ""
   end
 
-  def functions
+  def begin_lines
+    ""
+  end
+
+  def end_lines
     ""
   end
 
@@ -240,6 +244,11 @@ end
 class BashScriptActions < ScriptActions
   def file_header
     "#!/bin/bash"
+  end
+
+  def begin_lines
+    "\n" + comment("*** Functions ***\n") + 
+    functions
   end
 
   def functions
@@ -289,15 +298,20 @@ class CmdScriptActions < ScriptActions
     "@echo off"
   end
 
+  def end_lines
+    "goto:eof\n\n" + functions
+  end
+
   def functions
-    curl = curl("$~1", "$~2")
     <<-eos
 :copy_curl
-echo "$~2 <= $~1"
-if exist $~2 (
-#{curl_update('$~1', '$~2')}
+echo. %~2 
+echo. %~1
+if exist %~2 (
+#{curl_update('%~1', '%~2')}
 ) else (
-#{curl_replace('$~1', '$~2')}
+#{curl_replace('%~1', '%~2')}
+)
 :goto:eof
     eos
   end
@@ -327,7 +341,7 @@ if exist $~2 (
   end
 
   def download(src,dst)
-    "copy_curl #{src} #{windows_path(dst)}"
+    "call:copy_curl #{src} #{windows_path(dst)}"
   end
 
   register_script :bat
@@ -373,9 +387,9 @@ class BuildUpdateScript
   def update
     File.open(@path, 'w') do |f|
       f.puts(@header_lines)
-      f.puts("\n" + @actions.comment("*** Functions ***"))
-      f.puts(@actions.functions)
+      f.puts(@actions.begin_lines)
       f.puts(@lines)
+      f.puts(@actions.end_lines)
     end
   end
 
