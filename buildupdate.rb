@@ -626,7 +626,9 @@ deps.dependencies.each do |d|
     dst.gsub!("\\", "/")
     files = []
     if src.glob?
-      ivy_xml = repo_api["/download/#{d.build_type}/#{d.revision_value}/teamcity-ivy.xml"].get
+      ivy_api_call = "/download/#{d.build_type}/#{d.revision_value}/teamcity-ivy.xml"
+      ivy_xml = repo_api[ivy_api_call].get
+      verbose("ivy: src=#{src}, dst=#{dst}, api=#{ivy_api_call}\n\n#{ivy_xml}")
       ivy = IvyArtifacts.new(ivy_xml)
       matching_files = ivy.artifacts.select { |a| File.fnmatch(src, a, File::FNM_DOTMATCH)}
       files.concat(matching_files)
