@@ -178,6 +178,8 @@ class IvyArtifacts
 end
 
 class ScriptActions
+  attr_accessor :download_app
+  @download_app = "curl"
   @@subclasses = {}
   def self.create type
     c = @@subclasses[type.to_sym]
@@ -239,6 +241,10 @@ class ScriptActions
     "curl -# -L -o #{dst} #{src}"
   end
 
+  def wget_update(src, dst)
+    "wget -q -L -N #{src}"
+  end
+
 end
 
 class BashScriptActions < ScriptActions
@@ -254,13 +260,22 @@ class BashScriptActions < ScriptActions
   def functions
     <<-eos
 copy_curl() {
-  echo "$2 <= $1"
+  echo "curl: $2 <= $1"
   if [ -e "$2" ]
   then
     #{curl_update('$1', '$2')}
   else
     #{curl_replace('$1', '$2')}
   fi
+}
+
+copy_wget() {
+  echo "wget: $2 <= $1"
+  f=$(basename $2)
+  d=$(dirname $2)
+  cd $d
+  #{wget_update('$1', '$f')}
+  cd -
 }
     eos
   end
@@ -287,7 +302,8 @@ copy_curl() {
   end
 
   def download(src,dst)
-    "copy_curl #{src} #{unix_path(dst)}"
+$stderr.puts "download_app=#{@download_app}"
+    "copy_#{@download_app} #{src} #{unix_path(dst)}"
   end
 
   register_script :sh
@@ -312,6 +328,14 @@ if exist %~2 (
 ) else (
 #{curl_replace('%~1', '%~2')}
 )
+:goto:eof
+
+:copy_wget
+echo. %~2 
+echo. %~1
+pushd %~2\..\
+#{wget_update('%~1', '%~2')}
+popd
 :goto:eof
     eos
   end
@@ -425,7 +449,7 @@ def os_specific?(option, options)
   end
 end
 
-$options = { :server => "build.palaso.org", :verbose => false, :file => "buildupdate.sh", :root_dir => "."}
+$options = { :server => "build.palaso.org", :verbose => false, :file => "buildupdate.sh", :root_dir => ".", :download_app => "curl"}
 
 def verbose(message)
   $stderr.puts message if $options[:verbose]
@@ -441,6 +465,10 @@ OptionParser.new do |opts|
   opts.banner = "Usage: buildupdate.rb [options]"
   opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
     cmd_options[:verbose] = v
+  end
+
+  opts.on("-d", "--download_app APP", "Specify the app to use to download the content") do |d|
+    cmd_options[:download_app] = d
   end
 
   opts.on("-s", "--server SERVER", "Specify the TeamCity Server Hostname") do |s|
@@ -478,6 +506,8 @@ def comment(str)
 end
 $options.merge!($script.options)
 $options.merge!(cmd_options)
+
+$script.actions.download_app = $options[:download_app]
 root_dir = $options[:root_dir]
 
 verbose("Options: #{$options}")
