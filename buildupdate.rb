@@ -302,7 +302,6 @@ copy_wget() {
   end
 
   def download(src,dst)
-$stderr.puts "download_app=#{@download_app}"
     "copy_#{@download_app} #{src} #{unix_path(dst)}"
   end
 
@@ -328,15 +327,15 @@ if exist %~2 (
 ) else (
 #{curl_replace('%~1', '%~2')}
 )
-:goto:eof
+goto:eof
 
 :copy_wget
 echo. %~2 
 echo. %~1
-pushd %~2\..\
+pushd %~2\\..\\
 #{wget_update('%~1', '%~2')}
 popd
-:goto:eof
+goto:eof
     eos
   end
 
@@ -365,7 +364,7 @@ popd
   end
 
   def download(src,dst)
-    "call:copy_curl #{src} #{windows_path(dst)}"
+    "call:copy_#{@download_app} #{src} #{windows_path(dst)}"
   end
 
   register_script :bat
