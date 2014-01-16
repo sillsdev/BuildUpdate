@@ -179,7 +179,7 @@ end
 
 class ScriptActions
   attr_accessor :download_app
-  @download_app = "curl"
+  @download_app = "auto"
   @@subclasses = {}
   def self.create type
     c = @@subclasses[type.to_sym]
@@ -259,6 +259,21 @@ class BashScriptActions < ScriptActions
 
   def functions
     <<-eos
+copy_auto() {
+  where_curl=$(type -P curl)
+  where_wget=$(type -P wget)
+  if [ "$where_curl" != "" ]
+  then
+    copy_curl $1 $2
+  elif [ "$where_wget" != "" ]
+  then
+    copy_wget $1 $2
+  else
+    echo "Missing curl or wget"
+    exit 1
+  fi
+}
+
 copy_curl() {
   echo "curl: $2 <= $1"
   if [ -e "$2" ]
@@ -448,7 +463,7 @@ def os_specific?(option, options)
   end
 end
 
-$options = { :server => "build.palaso.org", :verbose => false, :file => "buildupdate.sh", :root_dir => ".", :download_app => "curl"}
+$options = { :server => "build.palaso.org", :verbose => false, :file => "buildupdate.sh", :root_dir => ".", :download_app => "auto"}
 
 def verbose(message)
   $stderr.puts message if $options[:verbose]
