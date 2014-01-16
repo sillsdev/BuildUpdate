@@ -467,6 +467,7 @@ OptionParser.new do |opts|
   end
 
   opts.on("-d", "--download_app APP", "Specify the app to use to download the content") do |d|
+    abort("Invalid app: #{d}.  Should be curl or wget") if d !~ /^(curl|wget)$/
     cmd_options[:download_app] = d
   end
 
