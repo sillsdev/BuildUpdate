@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# $Id$
 require 'rubygems'
 require 'rest_client'
 require 'optparse'
@@ -389,7 +390,7 @@ goto:eof
 end
 
 class BuildUpdateScript
-  attr_accessor :header_lines, :options, :lines, :path, :root, :actions
+  attr_accessor :header_lines, :options, :lines, :path, :root, :actions, :version
   def initialize(path)
     type = path.split('.')[-1]
     @actions = ScriptActions.create(type)
@@ -398,6 +399,7 @@ class BuildUpdateScript
     @options = {}
     @lines = []
     @root = ''
+    @version = @actions.comment('$Id$')
     if File.exist?(path)
       f = File.open(@path, 'r')
       line = f.gets.chomp
@@ -428,15 +430,13 @@ class BuildUpdateScript
   def update
     File.open(@path, 'w') do |f|
       f.puts(@header_lines)
+      f.puts(@version)
       f.puts(@actions.begin_lines)
       f.puts(@lines)
       f.puts(@actions.end_lines)
     end
   end
 
-  def to_s
-    header_lines.join + "\n" + lines.join("\n")
-  end
 end
 
 def os
