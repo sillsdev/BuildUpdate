@@ -263,6 +263,20 @@ class BashScriptActions < ScriptActions
 
   def functions
     <<-eos
+force=
+
+while getopts f opt; do
+	case $opt in
+	f)
+		force=1
+		;;
+
+	esac
+done
+
+shift $((OPTIND - 1))
+
+
 copy_auto() {
 	where_curl=$(type -P curl)
 	where_wget=$(type -P wget)
@@ -280,7 +294,7 @@ copy_auto() {
 
 copy_curl() {
 	echo "curl: $2 <= $1"
-	if [ -e "$2" ]
+	if [ -e "$2" ] && [ "$force" != "1" ]
 	then
 		#{curl_update('$1', '$2')}
 	else
