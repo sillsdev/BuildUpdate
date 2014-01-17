@@ -626,7 +626,9 @@ deps.dependencies.each do |d|
     dst.gsub!("\\", "/")
     files = []
     if src.glob?
-      ivy_xml = repo_api["/download/#{d.build_type}/#{d.revision_value}/teamcity-ivy.xml"].get
+      ivy_api_call = "/download/#{d.build_type}/#{d.revision_value}/teamcity-ivy.xml"
+      ivy_xml = repo_api[ivy_api_call].get
+      verbose("glob: src=#{src}, dst=#{dst}, api=#{ivy_api_call}\n\n#{ivy_xml}")
       ivy = IvyArtifacts.new(ivy_xml)
       matching_files = ivy.artifacts.select { |a| File.fnmatch(src, a, File::FNM_DOTMATCH)}
       files.concat(matching_files)
@@ -635,7 +637,7 @@ deps.dependencies.each do |d|
     end
 
     files.each do |f|
-
+      verbose("Input: f=#{f}, dst=#{dst}")
       if src.end_with?("/**")
               # e.g. f = foo/bar/baz.dll and src = foo/** => bar/baz.dll
         dst_file = File.join(dst,f.sub(src.sub("**",""),""))
@@ -643,11 +645,12 @@ deps.dependencies.each do |d|
       elsif src.include?("**")
         abort("Can't handle recursive match that isn't at the end: #{src}")
       else
-        dst_file = File.join(dst, f)
+        dst_file = File.join(dst, File.basename(f))
         dst_dir = dst
       end
       dst_dirs << dst_dir
       dst_files << ["#{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f}", "#{root_dir}/#{dst_file}"]
+      verbose("Added: #{dst_files[-1]}")
     end
   end
 end
