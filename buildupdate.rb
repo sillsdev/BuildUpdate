@@ -203,7 +203,7 @@ class ScriptActions
   end
 
   def end_lines
-    ""
+    comment("End of script")
   end
 
   def comment_prefix
@@ -260,37 +260,37 @@ class BashScriptActions < ScriptActions
   def functions
     <<-eos
 copy_auto() {
-  where_curl=$(type -P curl)
-  where_wget=$(type -P wget)
-  if [ "$where_curl" != "" ]
-  then
-    copy_curl $1 $2
-  elif [ "$where_wget" != "" ]
-  then
-    copy_wget $1 $2
-  else
-    echo "Missing curl or wget"
-    exit 1
-  fi
+	where_curl=$(type -P curl)
+	where_wget=$(type -P wget)
+	if [ "$where_curl" != "" ]
+	then
+		copy_curl $1 $2
+	elif [ "$where_wget" != "" ]
+	then
+		copy_wget $1 $2
+	else
+		echo "Missing curl or wget"
+		exit 1
+	fi
 }
 
 copy_curl() {
-  echo "curl: $2 <= $1"
-  if [ -e "$2" ]
-  then
-    #{curl_update('$1', '$2')}
-  else
-    #{curl_replace('$1', '$2')}
-  fi
+	echo "curl: $2 <= $1"
+	if [ -e "$2" ]
+	then
+		#{curl_update('$1', '$2')}
+	else
+		#{curl_replace('$1', '$2')}
+	fi
 }
 
 copy_wget() {
-  echo "wget: $2 <= $1"
-  f=$(basename $2)
-  d=$(dirname $2)
-  cd $d
-  #{wget_update('$1', '$f')}
-  cd -
+	echo "wget: $2 <= $1"
+	f=$(basename $2)
+	d=$(dirname $2)
+	cd $d
+	#{wget_update('$1', '$f')}
+	cd -
 }
     eos
   end
@@ -329,7 +329,7 @@ class CmdScriptActions < ScriptActions
   end
 
   def end_lines
-    "goto:eof\n\n" + functions
+    "goto:eof\n\n" + functions + comment("End of Script")
   end
 
   def functions
