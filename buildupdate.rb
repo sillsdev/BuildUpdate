@@ -52,7 +52,7 @@ class ArtifactDependency
       when 'pathRules'
         value.split("\n").each do |line|
           (src,dst) = line.split('=>')
-          @path_rules[src] = dst
+          @path_rules[src.strip] = dst.strip
         end
       when 'source_buildTypeId'
         @build_type = value
