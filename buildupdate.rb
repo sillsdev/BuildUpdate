@@ -5,6 +5,7 @@ require 'rest_client'
 require 'optparse'
 require 'nori'
 require 'set'
+require 'net/http'
 
 require 'awesome_print'
 
@@ -403,12 +404,79 @@ goto:eof
   register_script :bat
 end
 
-class BuildUpdateScript
+class BuildUpdateBase
+  attr_reader :options
+  def sef.create(options)
+    if options[:file].nil?
+      c = BuildUpdateExecute.new(options)
+    else
+      c = BuildUpdateScript.new(options)
+    end
+  end
+
+  def clean_dir(dir)
+    raise 'Not Implemented!'
+  end
+
+  def report_meta_data(metadata)
+    raise 'Not Implemented!'
+  end
+
+  def output_dir(dir)
+    raise 'Not Implemented!'
+  end
+
+  def download_file(src, dst)
+    raise 'Not Implemented!'
+  end
+end
+
+class BuildUpdateExecute < BuildUpdateBase
+  def clean_dir(dir)
+    puts "Deleting #{dir}"
+    FileUtils.rmtree dir
+  end
+
+  def output_dir(dir)
+    puts "Make #{dir}"
+    FileUtils.makedirs dir
+  end
+
+  def report_metadata(metadata)
+    if options[:metadata]
+      puts ':metadata:'
+      puts metadata
+      puts ':/metadata:'
+    end
+  end
+
+  def download_file(src, dst)
+    file = File.stat dst
+
+    uri = URI(src)
+    req = Net::HTTP::Get.new(uri)
+    unless file.nil?
+      req['If-Modified-Since'] = file.mtime.rfc2822
+    end
+
+    res = Net::HTTTP.start(uri.hostname, uri.port) do |http|
+      http.request(req)
+    end
+
+    open dst, 'w' do |io|
+      io.
+    end
+  end
+end
+
+class BuildUpdateScript < BuildUpdateBase
   attr_accessor :header_lines, :options, :lines, :path, :root, :actions, :version
-  def initialize(path)
+  def initialize(options)
+    @options = options
+    @path = options[:file]
     type = path.split('.')[-1]
     @actions = ScriptActions.create(type)
-    @path = path
+
     @header_lines = []
     @options = {}
     @lines = []
@@ -424,6 +492,13 @@ class BuildUpdateScript
         @header_lines.push(line)
         @options.merge!(variable)
       end
+    end
+
+    @actions.download_app = @options[:download_app]
+
+    # We want metadata in the script as long as it isn't explicitly turned off
+    if @options[:metadata].nil?
+      @options[:metadata] = true
     end
   end
 
@@ -451,6 +526,25 @@ class BuildUpdateScript
     end
   end
 
+  def clean_dir(dir)
+      lines.push(@actions.rmdir(dir))
+  end
+
+  def report_metadata(metadata)
+    if options[:metadata]
+      metadata.each do |line|
+        lines.push(@actions.comment(line))
+      end
+    end
+  end
+
+  def output_dir(dir)
+    lines.push(@actions.mkdir(dir))
+  end
+
+  def download_file(src, dst)
+    lines.push(@actions.download(src, dst))
+  end
 end
 
 def os
@@ -480,7 +574,7 @@ def os_specific?(option, options)
   end
 end
 
-$options = { :server => 'build.palaso.org', :verbose => false, :file => 'buildupdate.sh', :root_dir => '.', :download_app => 'auto'}
+default_options = { :server => 'build.palaso.org', :verbose => false, :root_dir => '.', :download_app => 'auto'}
 
 def verbose(message)
   $stderr.puts message if $options[:verbose]
@@ -496,6 +590,10 @@ OptionParser.new do |opts|
   opts.banner = 'Usage: buildupdate.rb [options]'
   opts.on('-v', '--[no-]verbose', 'Run verbosely') do |v|
     cmd_options[:verbose] = v
+  end
+
+  opts.on('-m', '--[no-]metadata', 'Display the metadata discovered') do |m|
+    cmd_options[:metadata] = m
   end
 
   opts.on('-d', '--download_app APP', 'Specify the app to use to download the content') do |d|
@@ -526,20 +624,12 @@ OptionParser.new do |opts|
   end
 
   opts.on('-f', '--file SHELL_FILE', 'Specify the shell file to update (default: buildupdate.sh') do |f|
-    # This is a special one.  We want to override where other options are read from...
-    $options[:file] = f
+    cmd_options[:file] = f
   end
 end.parse!
 
-
-$script = BuildUpdateScript.new($options[:file])
-def comment(str)
-  $script.actions.comment(str)
-end
-$options.merge!($script.options)
-$options.merge!(cmd_options)
-
-$script.actions.download_app = $options[:download_app]
+$build_update = BuildUpdateBase.create(default_options.merge(cmd_options))
+$options = $build_update.options
 root_dir = $options[:root_dir]
 
 verbose("Options: #{$options}")
@@ -585,9 +675,8 @@ deps = ArtifactDependencies.new(deps_xml)
 abort('Dependencies not found!') if deps.nil?
 
 deps.dependencies.select { |dep| dep.clean_destination_directory }.each do |d|
-  $script.lines.push(comment('clean destination directories'))
   d.path_rules.each do |src,dst|
-    $script.lines.push($script.actions.rmdir("#{root_dir}/#{dst}"))
+    $build_update.clean_dir(File.join(root_dir, dst))
   end
 end
 
@@ -602,36 +691,36 @@ unless build.vcs_root_id.nil?
   vcs = VCSRoot.new(vcs_xml)
 end
 
-$script.lines.push('')
+metadata =
 [
     '*** Results ***',
     "build: #{build.build_name} (#{build_type})",
     "project: #{build.project_name}",
     "URL: #{build.url}"
-].each { |line| $script.lines.push(comment(line)) }
+]
 
 unless vcs.nil?
-  $script.lines.push(comment("VCS: #{vcs.repository_path} [#{build.resolve(vcs.branch_name)}]"))
+  metadata.push "VCS: #{vcs.repository_path} [#{build.resolve(vcs.branch_name)}]"
 end
 
-$script.lines.push(comment('dependencies:'))
+metadata.push 'dependencies:'
 deps.dependencies.each_with_index do |d, i|
   build_xml = rest_api["/buildTypes/id:#{d.build_type}"].get
   build = BuildType.new(build_xml)
 
-  [
+  metadata.push *[
     "[#{i}] build: #{build.build_name} (#{d.build_type})",
     "    project: #{build.project_name}",
     "    URL: #{build.url}",
     "    clean: #{d.clean_destination_directory}",
     "    revision: #{d.revision_value}",
     "    paths: #{d.path_rules}"
-  ].each { |line| $script.lines.push(comment(line)) }
+  ]
 
   unless build.vcs_root_id.nil?
     vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
     vcs = VCSRoot.new(vcs_xml)
-    $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{build.resolve(vcs.branch_name)}]"))
+    metadata.push "    VCS: #{vcs.repository_path} [#{build.resolve(vcs.branch_name)}]"
   end
 end
 
@@ -673,15 +762,12 @@ deps.dependencies.each do |d|
   end
 end
 
-$script.lines.push('')
-$script.lines.push(comment('make sure output directories exist'))
 dst_dirs.each do |dir|
-  $script.lines.push($script.actions.mkdir("#{root_dir}/#{dir}"))
+  $build_update.output_dir File.join(root_dir, dir)
 end
 
-$script.lines.push('')
-$script.lines.push(comment('download artifact dependencies'))
 dst_files.each do |pair|
+
   $script.lines.push($script.actions.download(pair[0], pair[1]))
 end
 
