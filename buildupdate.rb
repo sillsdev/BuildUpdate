@@ -257,8 +257,13 @@ class BashScriptActions < ScriptActions
   end
 
   def begin_lines
-    "\n" + comment("*** Functions ***\n") + 
-    functions
+    <<-eos
+
+cd "$(dirname "$0")"
+
+#{comment("*** Functions ***")}
+#{functions}
+    eos
   end
 
   def functions
