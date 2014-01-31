@@ -351,16 +351,47 @@ class CmdScriptActions < ScriptActions
     '@echo off'
   end
 
+  def begin_lines
+    <<-eos
+setlocal EnableDelayedExpansion
+pushd "%~dp0"
+if "%~1" == "-f" SET FORCE_DOWNLOAD=1
+    eos
+  end
   def end_lines
-    "goto:eof\n\n" + functions + comment('End of Script')
+    "endlocal\npopd\ngoto:eof\n\n" + functions + comment('End of Script')
   end
 
   def functions
     <<-eos
+:copy_auto
+if "!USE_CURL!!USE_WGET!" == "" (
+curl --help >nul 2>&1
+if !errorlevel! == 0 (
+SET USE_CURL=1
+) ELSE (
+wget --help >nul 2>&1
+if !errorlevel! == 0 (
+SET USE_WGET=1
+) ELSE (
+echo. curl and wget are missing!
+exit /b
+)
+)
+)
+if !USE_CURL! == 1 (
+call :copy_curl %1 %2
+) ELSE (
+IF !USE_WGET! == 1 (
+call :copy_wget %1 %2
+)
+)
+goto:eof
+
 :copy_curl
 echo. %~2 
 echo. %~1
-if exist %~2 (
+if exist %~2 if "!FORCE_DOWNLOAD!" == "" (
 #{curl_update('%~1', '%~2')}
 ) else (
 #{curl_replace('%~1', '%~2')}
@@ -378,7 +409,7 @@ goto:eof
   end
 
   def comment_prefix
-    'REM'
+    '::'
   end
 
   def windows_path(dir)
