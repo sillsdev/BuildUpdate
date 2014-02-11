@@ -271,23 +271,11 @@ cd "$(dirname "$0")"
 force=0
 clean=0
 
-if ! options=$(getopt -o fc -l force,clean -- "$@")
-then
-# getopt will print error message
-exit 1
-fi
-
-set -- $options
-while [ $# -gt 0 ]
-do
-case $1 in
--f|--force) force=1 ;;
--c|--clean) clean=1 ;;
-(--) shift; break;;
-(-*) echo "$0: error - unrecognized option $1" 1>2& exit 1;;
-(*) break;
+while getopts fc opt; do
+case $opt in
+f) force=1 ;;
+c) clean=1 ;;
 esac
-shift
 done
 
 copy_auto() {
