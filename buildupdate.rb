@@ -268,33 +268,47 @@ cd "$(dirname "$0")"
 
   def functions
     <<-eos
-force=
+force=0
+clean=0
 
-while getopts f opt; do
-	case $opt in
-	f)
-		force=1
-		;;
+if ! options=$(getopt -o fc -l force,clean -- "$@")
+then
+  # getopt will print error message
+  exit 1
+fi
 
+set -- $options
+while [ $# -gt 0 ]
+do
+  case $1 in
+	-f|--force) force=1 ;;
+  -c|--clean) clean=1 ;;
+  (--) shift; break;;
+  (-*) echo "$0: error - unrecognized option $1" 1>2& exit 1;;
+  (*) break;
 	esac
+  shift
 done
 
-shift $((OPTIND - 1))
-
-
 copy_auto() {
-	where_curl=$(type -P curl)
-	where_wget=$(type -P wget)
-	if [ "$where_curl" != "" ]
-	then
-		copy_curl $1 $2
-	elif [ "$where_wget" != "" ]
-	then
-		copy_wget $1 $2
-	else
-		echo "Missing curl or wget"
-		exit 1
-	fi
+  if [ "$clean" == "1" ]
+  then
+    echo cleaning $2
+    rm -f ""$2""
+  else
+	  where_curl=$(type -P curl)
+	  where_wget=$(type -P wget)
+	  if [ "$where_curl" != "" ]
+	  then
+		  copy_curl $1 $2
+	  elif [ "$where_wget" != "" ]
+	  then
+		  copy_wget $1 $2
+	  else
+		  echo "Missing curl or wget"
+		  exit 1
+	  fi
+  fi
 }
 
 copy_curl() {
@@ -355,7 +369,11 @@ class CmdScriptActions < ScriptActions
     <<-eos
 setlocal EnableDelayedExpansion
 pushd "%~dp0"
+:getopts
 if "%~1" == "-f" SET FORCE_DOWNLOAD=1
+if "%~1" == "-c" SET CLEAN_DOWNLOAD=1
+shift
+if not "%~1" == "" goto getopts
     eos
   end
   def end_lines
@@ -365,6 +383,10 @@ if "%~1" == "-f" SET FORCE_DOWNLOAD=1
   def functions
     <<-eos
 :copy_auto
+if "!CLEAN_DOWNLOAD!" == "1" (
+echo. cleaning %2
+DEL /F %2
+) ELSE (
 if "!USE_CURL!!USE_WGET!" == "" (
 curl --help >nul 2>&1
 if !errorlevel! == 0 (
@@ -384,6 +406,7 @@ call :copy_curl %1 %2
 ) ELSE (
 IF !USE_WGET! == 1 (
 call :copy_wget %1 %2
+)
 )
 )
 goto:eof
