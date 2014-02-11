@@ -281,12 +281,12 @@ set -- $options
 while [ $# -gt 0 ]
 do
   case $1 in
-	-f|--force) force=1 ;;
+  -f|--force) force=1 ;;
   -c|--clean) clean=1 ;;
   (--) shift; break;;
   (-*) echo "$0: error - unrecognized option $1" 1>2& exit 1;;
   (*) break;
-	esac
+  esac
   shift
 done
 
@@ -296,38 +296,38 @@ copy_auto() {
     echo cleaning $2
     rm -f ""$2""
   else
-	  where_curl=$(type -P curl)
-	  where_wget=$(type -P wget)
-	  if [ "$where_curl" != "" ]
-	  then
-		  copy_curl $1 $2
-	  elif [ "$where_wget" != "" ]
-	  then
-		  copy_wget $1 $2
-	  else
-		  echo "Missing curl or wget"
-		  exit 1
-	  fi
+    where_curl=$(type -P curl)
+    where_wget=$(type -P wget)
+    if [ "$where_curl" != "" ]
+    then
+      copy_curl $1 $2
+    elif [ "$where_wget" != "" ]
+    then
+      copy_wget $1 $2
+    else
+      echo "Missing curl or wget"
+      exit 1
+    fi
   fi
 }
 
 copy_curl() {
-	echo "curl: $2 <= $1"
-	if [ -e "$2" ] && [ "$force" != "1" ]
-	then
-		#{curl_update('$1', '$2')}
-	else
-		#{curl_replace('$1', '$2')}
-	fi
+  echo "curl: $2 <= $1"
+  if [ -e "$2" ] && [ "$force" != "1" ]
+  then
+    #{curl_update('$1', '$2')}
+  else
+    #{curl_replace('$1', '$2')}
+  fi
 }
 
 copy_wget() {
-	echo "wget: $2 <= $1"
-	f=$(basename $2)
-	d=$(dirname $2)
-	cd $d
-	#{wget_update('$1', '$f')}
-	cd -
+  echo "wget: $2 <= $1"
+  f=$(basename $2)
+  d=$(dirname $2)
+  cd $d
+  #{wget_update('$1', '$f')}
+  cd -
 }
     eos
   end
