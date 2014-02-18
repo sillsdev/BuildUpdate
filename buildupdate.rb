@@ -38,11 +38,12 @@ def ensure_array_of_objects(obj)
 end
 
 class ArtifactDependency
-  attr_accessor :clean_destination_directory, :path_rules, :revision_name, :revision_value, :build_type
+  attr_accessor :clean_destination_directory, :path_rules, :exclusion_rules, :revision_name, :revision_value, :build_type
 
   def initialize(props)
     @clean_destination_directory = false
-    @path_rules =  {}
+    @path_rules = {}
+    @exclusion_rules = {}
     props.each do |p|
       name = p[:@name]
       value = p[:@value]
@@ -51,8 +52,13 @@ class ArtifactDependency
         @clean_destination_directory = value.to_bool
       when 'pathRules'
         value.split("\n").each do |line|
-          (src,dst) = line.split('=>')
-          @path_rules[src.strip] = dst.strip
+          if line =~ /^[+\-]:/
+            (op,pattern) = line.split(':')
+            @exclusion_rules[pattern] = op
+          else
+            (src,dst) = line.split('=>')
+            @path_rules[src.strip] = dst.strip
+          end
         end
       when 'source_buildTypeId'
         @build_type = value
@@ -686,14 +692,14 @@ end
 dst_dirs = Set.new
 dst_files = []
 deps.dependencies.each do |d|
-  d.path_rules.each do |key,dst|
-    src = key.gsub("\\", '/')
-    dst.gsub!("\\", '/')
+  d.path_rules.each do |path_rules_key,path_rules_dst|
+    src = path_rules_key.gsub("\\", '/')
+    path_rules_dst.gsub!("\\", '/')
     files = []
     if src.glob?
       ivy_api_call = "/download/#{d.build_type}/#{d.revision_value}/teamcity-ivy.xml"
       ivy_xml = repo_api[ivy_api_call].get
-      verbose("glob: src=#{src}, dst=#{dst}, api=#{ivy_api_call}\n\n#{ivy_xml}")
+      verbose("glob: src=#{src}, dst=#{path_rules_dst}, api=#{ivy_api_call}\n\n#{ivy_xml}")
       ivy = IvyArtifacts.new(ivy_xml)
       matching_files = ivy.artifacts.select { |a| File.fnmatch(src, a, File::FNM_DOTMATCH)}
       files.concat(matching_files)
@@ -701,7 +707,26 @@ deps.dependencies.each do |d|
       files.push(src)
     end
 
-    files.each do |f|
+    filtered_files = []
+    files.each do |file|
+      matches = d.exclusion_rules.select { |pat,op| File.fnmatch(pat.sub(/=>.*/,''), file, File::FNM_DOTMATCH)}
+      if matches.count > 0
+        sorted_matches = matches.sort_by { |pat, op| pat.index(/[\?\*]/) || -1 }
+        if sorted_matches[0][1] == '+'
+          # This may include a different dst
+          filtered_files.push(sorted_matches[0][0])
+        end
+      else
+        filtered_files.push(file)
+      end
+    end
+
+    filtered_files.each do |f|
+      dst = path_rules_dst
+      if f =~ /=>/
+        # This was do to exclusion moving the file to another dst
+        (f, dst) = f.split('=>')
+      end
       verbose("Input: f=#{f}, dst=#{dst}")
       if src.end_with?('/**')
               # e.g. f = foo/bar/baz.dll and src = foo/** => bar/baz.dll
