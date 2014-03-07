@@ -284,6 +284,8 @@ c) clean=1 ;;
 esac
 done
 
+shift $((OPTIND - 1))
+
 copy_auto() {
 if [ "$clean" == "1" ]
 then
@@ -682,7 +684,9 @@ deps.dependencies.each_with_index do |d, i|
   ].each { |line| $script.lines.push(comment(line)) }
 
   unless build.vcs_root_id.nil?
-    vcs_xml = rest_api["/vcs-roots/id:#{build.vcs_root_id}"].get
+    req = "/vcs-roots/id:#{build.vcs_root_id}"
+    vcs_xml = rest_api[req].get
+    verbose("VCS req:#{req}\nxml:#{vcs_xml}")
     vcs = VCSRoot.new(vcs_xml)
     $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{build.resolve(vcs.branch_name)}]"))
   end
