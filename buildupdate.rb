@@ -57,7 +57,11 @@ class ArtifactDependency
             @exclusion_rules[pattern] = op
           else
             (src,dst) = line.split('=>')
-            @path_rules[src.strip] = dst.strip
+            if dst.nil?
+              @path_rules[src.strip] = ''
+            else
+              @path_rules[src.strip] = dst.strip
+            end
           end
         end
       when 'source_buildTypeId'
@@ -232,6 +236,10 @@ class ScriptActions
     raise 'Not Implemented!'
   end
 
+  def rm(file)
+    raise 'Not Implemented!'
+  end
+
   def variable(var, value)
     comment_prefix + " #{var}=#{value}"
   end
@@ -255,6 +263,9 @@ class ScriptActions
     "wget -q -L -N #{src}"
   end
 
+  def unzip(zip_file)
+    "unzip -uqo #{zip_file} -d #{File.dirname(zip_file)}"
+  end
 end
 
 class BashScriptActions < ScriptActions
@@ -347,6 +358,10 @@ cd -
 
   def rmdir(dir)
     "rm -rf #{unix_path(dir)}"
+  end
+
+  def rm(file)
+    "rm -rf #{unix_path(file)}"
   end
 
   def download(src,dst)
@@ -449,6 +464,10 @@ goto:eof
     win_dir = windows_path(dir)
     "del /f/s/q #{win_dir}"
     "rmdir #{win_dir}"
+  end
+
+  def rm(file)
+    "del /f/s/q #{windows_path(file)}"
   end
 
   def download(src,dst)
@@ -642,7 +661,7 @@ abort('Dependencies not found!') if deps.nil?
 deps.dependencies.select { |dep| dep.clean_destination_directory }.each do |d|
   $script.lines.push(comment('clean destination directories'))
   d.path_rules.each do |src,dst|
-    $script.lines.push($script.actions.rmdir("#{root_dir}/#{dst}"))
+    $script.lines.push($script.actions.rmdir("#{File.join(root_dir,dst)}"))
   end
 end
 
@@ -695,12 +714,16 @@ end
 
 dst_dirs = Set.new
 dst_files = []
+unzip_files = []
 deps.dependencies.each do |d|
   d.path_rules.each do |path_rules_key,path_rules_dst|
     src = path_rules_key.gsub("\\", '/')
     path_rules_dst.gsub!("\\", '/')
     files = []
-    if src.glob?
+    if src.include?('zip!')
+      abort("Only supporting zip!** pattern for now!: src=#{src}") unless src.end_with?('zip!**')
+      files.push(src)
+    elsif src.glob?
       ivy_api_call = "/download/#{d.build_type}/#{d.revision_value}/teamcity-ivy.xml"
       ivy_xml = repo_api[ivy_api_call].get
       verbose("glob: src=#{src}, dst=#{path_rules_dst}, api=#{ivy_api_call}\n\n#{ivy_xml}")
@@ -732,7 +755,14 @@ deps.dependencies.each do |d|
         (f, dst) = f.split('=>')
       end
       verbose("Input: f=#{f}, dst=#{dst}")
-      if src.end_with?('/**')
+      if src.end_with?('zip!**')
+        f = f.split('!')[0]
+
+        dst_file = File.join(dst, File.basename(f))
+        dst_dir = dst
+        verbose("zip_file: f=#{f} basename(f)=#{File.basename(f)} dst_file=#{dst_file} dst_dir=#{dst_dir}")
+        unzip_files << dst_file
+      elsif src.end_with?('/**')
               # e.g. f = foo/bar/baz.dll and src = foo/** => bar/baz.dll
         dst_file = File.join(dst,f.sub(src.sub('**', ''), ''))
         dst_dir = File.dirname(dst_file)
@@ -743,7 +773,7 @@ deps.dependencies.each do |d|
         dst_dir = dst
       end
       dst_dirs << dst_dir
-      dst_files << %W(#{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f} #{root_dir}/#{dst_file})
+      dst_files << %W(#{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f} #{File.join(root_dir,dst_file)})
       verbose("Added: #{dst_files[-1]}")
     end
   end
@@ -751,8 +781,8 @@ end
 
 $script.lines.push('')
 $script.lines.push(comment('make sure output directories exist'))
-dst_dirs.each do |dir|
-  $script.lines.push($script.actions.mkdir("#{root_dir}/#{dir}"))
+dst_dirs.sort.each do |dir|
+  $script.lines.push($script.actions.mkdir("#{File.join(root_dir,dir)}"))
 end
 
 $script.lines.push('')
@@ -761,5 +791,11 @@ dst_files.each do |pair|
   $script.lines.push($script.actions.download(pair[0], pair[1]))
 end
 
+if unzip_files.any?
+  $script.lines.push(comment('extract downloaded zip files'))
+  unzip_files.each do |zip_file|
+    $script.lines.push($script.actions.unzip("#{File.join(root_dir,zip_file)}"))
+  end
+end
 $script.set_header($options[:server], $options[:project], $options[:build], $options[:build_type], $options[:root_dir])
 $script.update
