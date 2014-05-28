@@ -263,8 +263,8 @@ class ScriptActions
     "wget -q -L -N #{src}"
   end
 
-  def unzip(zip_file)
-    "unzip -uqo #{zip_file} -d #{File.dirname(zip_file)}"
+  def unzip(zip_file, dst)
+    "unzip -uqo #{zip_file} -d #{dst}"
   end
 end
 
@@ -423,7 +423,7 @@ call :copy_wget %1 %2
 goto:eof
 
 :copy_curl
-echo. %~2 
+echo. %~2
 echo. %~1
 if exist %~2 if "!FORCE_DOWNLOAD!" == "" (
 #{curl_update('%~1', '%~2')}
@@ -433,7 +433,7 @@ if exist %~2 if "!FORCE_DOWNLOAD!" == "" (
 goto:eof
 
 :copy_wget
-echo. %~2 
+echo. %~2
 echo. %~1
 pushd %~2\\..\\
 #{wget_update('%~1', '%~2')}
@@ -758,10 +758,13 @@ deps.dependencies.each do |d|
       if src.end_with?('zip!**')
         f = f.split('!')[0]
 
-        dst_file = File.join(dst, File.basename(f))
+        # Download to Downloads directory, but unzip to dst directory
+        downloads_dir = "Downloads"
+        dst_dirs << downloads_dir
+        dst_file = File.join(downloads_dir, File.basename(f))
         dst_dir = dst
         verbose("zip_file: f=#{f} basename(f)=#{File.basename(f)} dst_file=#{dst_file} dst_dir=#{dst_dir}")
-        unzip_files << dst_file
+        unzip_files << %W(#{dst_file} #{dst_dir})
       elsif src.end_with?('/**')
               # e.g. f = foo/bar/baz.dll and src = foo/** => bar/baz.dll
         dst_file = File.join(dst,f.sub(src.sub('**', ''), ''))
@@ -793,8 +796,8 @@ end
 
 if unzip_files.any?
   $script.lines.push(comment('extract downloaded zip files'))
-  unzip_files.each do |zip_file|
-    $script.lines.push($script.actions.unzip("#{File.join(root_dir,zip_file)}"))
+  unzip_files.each do |zip_pair|
+    $script.lines.push($script.actions.unzip("#{File.join(root_dir,zip_pair[0])}", "#{File.join(root_dir,zip_pair[1])}"))
   end
 end
 $script.set_header($options[:server], $options[:project], $options[:build], $options[:build_type], $options[:root_dir])
