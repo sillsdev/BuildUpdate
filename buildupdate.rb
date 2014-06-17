@@ -165,8 +165,6 @@ unless build.vcs_root_id.nil?
   vcs = VCSRoot.new(vcs_xml)
 end
 
-artifact_rules = build.settings['artifactRules'].split("\n")
-
 $script.lines.push('')
 [
     '*** Results ***',
@@ -177,10 +175,6 @@ $script.lines.push('')
 
 unless vcs.nil?
   $script.lines.push(comment("VCS: #{vcs.repository_path} [#{build.resolve(vcs.branch_name)}]"))
-end
-
-unless artifact_rules.nil?
-  $script.lines.push(comment("Artifacts: #{artifact_rules}"))
 end
 
 $script.lines.push(comment('dependencies:'))

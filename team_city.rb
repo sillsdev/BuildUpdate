@@ -110,7 +110,7 @@ class BuildType
 
     def artifacts
       result = []
-      rules = @settings[:artifactRules]
+      rules = @settings['artifactRules']
       unless rules.nil?
         results = rules.split("\n")
       end
