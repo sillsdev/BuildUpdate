@@ -12,7 +12,7 @@ path = File.dirname(File.expand_path($0))
 require "#{path}/core_ext.rb"
 require "#{path}/team_city.rb"
 require "#{path}/script_actions.rb"
-require "#{path}/build_update_script.rb"
+require "#{path}/update_script.rb"
 
 def os
   @os ||= (
@@ -152,7 +152,9 @@ deps.dependencies.select { |dep| dep.clean_destination_directory }.each do |d|
   end
 end
 
-build_xml = rest_api["/buildTypes/id:#{build_type}"].get
+req = "/buildTypes/id:#{build_type}"
+build_xml = rest_api[req].get
+verbose("BuildType: req:#{req}\nxml: #{build_xml}")
 build = BuildType.new(build_xml)
 
 vcs = nil
@@ -162,6 +164,8 @@ unless build.vcs_root_id.nil?
   verbose("VCS req:#{req}\nxml:#{vcs_xml}")
   vcs = VCSRoot.new(vcs_xml)
 end
+
+artifact_rules = build.settings['artifactRules'].split("\n")
 
 $script.lines.push('')
 [
@@ -175,9 +179,15 @@ unless vcs.nil?
   $script.lines.push(comment("VCS: #{vcs.repository_path} [#{build.resolve(vcs.branch_name)}]"))
 end
 
+unless artifact_rules.nil?
+  $script.lines.push(comment("Artifacts: #{artifact_rules}"))
+end
+
 $script.lines.push(comment('dependencies:'))
 deps.dependencies.each_with_index do |d, i|
-  build_xml = rest_api["/buildTypes/id:#{d.build_type}"].get
+  req = "/buildTypes/id:#{d.build_type}"
+  build_xml = rest_api[req].get
+  verbose("BuildType[#{i}] req:#{req}\nxml:#{build_xml}")
   build = BuildType.new(build_xml)
 
   [

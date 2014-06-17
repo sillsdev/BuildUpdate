@@ -98,30 +98,42 @@ class TeamCityBuilds
 end
 
 class BuildType
-  attr_reader :project_name, :build_name, :url, :vcs_root_id, :parameters
+  attr_reader :project_name, :build_name, :url, :vcs_root_id, :parameters, :settings
   def initialize(xml)
     parser = Nori.new(:convert_tags_to => lambda { |tag| tag.snakecase.to_sym })
     build = parser.parse(xml)[:build_type]
     @build_name = build[:@name]
     @url = build[:@web_url]
     @project_name = build[:project][:@name]
-    @parameters = {}
+    @parameters = get_properties(build[:parameters])
+    @settings = get_properties(build[:settings])
 
-    begin
-      parameters = build[:parameters][:property]
-      parameters.each do |p|
-        name = p[:@name]
-        value = p[:@value]
-        @parameters[name] = value
+    def artifacts
+      result = []
+      rules = @settings[:artifactRules]
+      unless rules.nil?
+        results = rules.split("\n")
       end
-    rescue
-      # No parameters for this Build Type
     end
     begin
       @vcs_root_id = build[:vcs_root_entries][:vcs_root_entry][:@id]
     rescue
       verbose("Note: No VCS Root defined for project=#{@project_name}, build_name=#{@build_name}")
     end
+  end
+  def get_properties(container)
+    properties = {}
+    begin
+      props = container[:property]
+      props.each do |p|
+        name = p[:@name]
+        value = p[:@value]
+        properties[name] = value
+      end
+    rescue
+      # No properties
+    end
+    properties
   end
   def resolve(str)
     if str =~ /%[^%]+%/
