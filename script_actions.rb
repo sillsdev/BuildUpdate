@@ -86,13 +86,12 @@ class BashScriptActions < ScriptActions
 cd "$(dirname "$0")"
 
 #{comment("*** Functions ***")}
-    #{functions}
+#{functions}
     eos
   end
 
   def functions
-    <<-eos
-
+<<-eos
 force=0
 clean=0
 
@@ -144,7 +143,7 @@ cd $d
 #{wget_update('$1', '$f')}
 cd -
 }
-    eos
+eos
   end
 
   def comment_prefix
