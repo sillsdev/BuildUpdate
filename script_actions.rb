@@ -92,6 +92,7 @@ cd "$(dirname "$0")"
 
   def functions
     <<-eos
+
 force=0
 clean=0
 
