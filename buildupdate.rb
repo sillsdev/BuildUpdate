@@ -80,6 +80,10 @@ OptionParser.new do |opts|
     cmd_options[:root_dir] = r
   end
 
+  opts.on('--tag TAG', 'Specify a specific tagged build to pull dependencies') do |t|
+    cmd_options[:build_tag] = t
+  end
+
   # Really need to look up the build type based on environment
   opts.on('-t', '--build_type BUILD_TYPE', 'Specify the BuildType in TeamCity') do |t|
     abort("Invalid build_type: #{t}.  Should be bt[0-9]+") if t !~ /^bt[0-9]+/
@@ -122,13 +126,13 @@ if $options[:build_type].nil?
   project_id = projects.ids[project_name]
   abort("Project '#{project_name}' not Found!\nPossible Names:\n  #{projects.names.values.join("\n  ")}") if project_id.nil?
 
-  builds_xml = rest_api["/projects/id:#{project_id}/buildTypes"].get
-  builds = TeamCityBuilds.new(builds_xml)
+  build_types_xml = rest_api["/projects/id:#{project_id}/buildTypes"].get
+  build_types = TeamCityBuilds.new(build_types_xml)
 
   build_name = os_specific?(:build, $options)
   abort("You need to specify build!\nPossible Name:\n  #{builds.names.values.join("\n  ")}") if build_name.nil?
 
-  build_type = builds.ids[build_name]
+  build_type = build_types.ids[build_name]
   abort("Build '#{build_name}' not Found!\nPossible Names:\n  #{builds.names.values.join("\n  ")}") if build_type.nil?
   verbose("Selected: project=#{project_name}, build_name=#{build_name} => build_type=#{build_type}")
 else
@@ -138,8 +142,19 @@ end
 abort("You need to specify project/build or build_type in #{$script.path}!") if build_type.nil?
 
 
-deps_xml = rest_api["/buildTypes/id:#{build_type}/artifact-dependencies"].get
+tagged_build_dependencies = {}
+tagged_build_id = nil
+unless $options[:build_tag].nil?
+  builds_xml = rest_api["/buildTypes/id:#{build_type}/builds?tag=#{$options[:build_tag]}"].get
+  tagged_build_id = Builds.new(builds_xml).build_ids.first
+  build_xml = rest_api["/builds/id:#{tagged_build_id}"].get
+  build = Build.new(build_xml)
+  build.dependencies.each do |dep|
+    tagged_build_dependencies[dep.build_type] = dep.build_id
+  end
+end
 
+deps_xml = rest_api["/buildTypes/id:#{build_type}/artifact-dependencies"].get
 abort("BuildType '#{build_type}' not Found!") if deps_xml.nil?
 
 deps = ArtifactDependencies.new(deps_xml)
@@ -153,9 +168,9 @@ deps.dependencies.select { |dep| dep.clean_destination_directory }.each do |d|
 end
 
 req = "/buildTypes/id:#{build_type}"
-build_xml = rest_api[req].get
-verbose("BuildType: req:#{req}\nxml: #{build_xml}")
-build = BuildType.new(build_xml)
+build_type_xml = rest_api[req].get
+verbose("BuildType: req:#{req}\nxml: #{build_type_xml}")
+build = BuildType.new(build_type_xml)
 
 vcs = nil
 unless build.vcs_root_id.nil?
@@ -173,6 +188,10 @@ $script.lines.push('')
     "URL: #{build.url}"
 ].each { |line| $script.lines.push(comment(line)) }
 
+unless tagged_build_id.nil?
+  $script.lines.push(comment("TAG: #{$options[:build_tag]} [build_id=#{tagged_build_id}]"))
+end
+
 unless vcs.nil?
   $script.lines.push(comment("VCS: #{vcs.repository_path} [#{build.resolve(vcs.branch_name)}]"))
 end
@@ -180,25 +199,29 @@ end
 $script.lines.push(comment('dependencies:'))
 deps.dependencies.each_with_index do |d, i|
   req = "/buildTypes/id:#{d.build_type}"
-  build_xml = rest_api[req].get
-  verbose("BuildType[#{i}] req:#{req}\nxml:#{build_xml}")
-  build = BuildType.new(build_xml)
+  build_type_xml = rest_api[req].get
+  verbose("BuildType[#{i}] req:#{req}\nxml:#{build_type_xml}")
+  build_type = BuildType.new(build_type_xml)
+
+  if tagged_build_dependencies.has_key?(d.build_type)
+    d.use_tagged_build(tagged_build_dependencies[d.build_type])
+  end
 
   [
-    "[#{i}] build: #{build.build_name} (#{d.build_type})",
-    "    project: #{build.project_name}",
-    "    URL: #{build.url}",
+    "[#{i}] build: #{build_type.build_name} (#{d.build_type})",
+    "    project: #{build_type.project_name}",
+    "    URL: #{build_type.url}",
     "    clean: #{d.clean_destination_directory}",
     "    revision: #{d.revision_value}",
     "    paths: #{d.path_rules}"
   ].each { |line| $script.lines.push(comment(line)) }
 
-  unless build.vcs_root_id.nil?
-    req = "/vcs-roots/id:#{build.vcs_root_id}"
+  unless build_type.vcs_root_id.nil?
+    req = "/vcs-roots/id:#{build_type.vcs_root_id}"
     vcs_xml = rest_api[req].get
     verbose("VCS req:#{req}\nxml:#{vcs_xml}")
     vcs = VCSRoot.new(vcs_xml)
-    $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{build.resolve(vcs.branch_name)}]"))
+    $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{build_type.resolve(vcs.branch_name)}]"))
   end
 end
 
@@ -291,5 +314,5 @@ if unzip_files.any?
     $script.lines.push($script.actions.unzip("#{File.join(root_dir,zip_pair[0])}", "#{File.join(root_dir,zip_pair[1])}"))
   end
 end
-$script.set_header($options[:server], $options[:project], $options[:build], $options[:build_type], $options[:root_dir])
+$script.set_header($options[:server], $options[:project], $options[:build], $options[:build_type], $options[:root_dir], $options[:build_tag])
 $script.update

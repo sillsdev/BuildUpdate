@@ -21,7 +21,7 @@ class BuildUpdateScript
     end
   end
 
-  def set_header(server, project, build, build_type, root_dir)
+  def set_header(server, project, build, build_type, root_dir, build_tag)
     @header_lines = [
         @actions.file_header,
         @actions.variable('server', server)
@@ -33,6 +33,7 @@ class BuildUpdateScript
       @header_lines.push(@actions.variable('build', build))
     end
     @header_lines.push(@actions.variable('root_dir', root_dir)) unless root_dir.nil?
+    @header_lines.push(@actions.variable('build_tag', build_tag)) unless build_tag.nil?
   end
 
   def update

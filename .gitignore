@@ -22,3 +22,6 @@ doc/
 
 # Test files
 buildupdate.sh
+
+# Backup files
+*~

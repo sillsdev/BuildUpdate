@@ -49,6 +49,12 @@ class ArtifactDependency
       end
     end
   end
+
+  def use_tagged_build(build_id)
+    @revision_name = "tcbuildid"
+    @revision_value = "#{build_id}.tcbuildid"
+  end
+
 end
 
 class ArtifactDependencies
@@ -177,6 +183,40 @@ class IvyArtifacts
     artifacts = ensure_array_of_objects(parser.parse(xml)[:ivy_module][:publications][:artifact])
     artifacts.each do |a|
       @artifacts.push("#{a[:@name]}.#{a[:@ext]}")
+    end
+  end
+end
+
+class Builds
+  attr_reader :build_ids
+  def initialize(xml)
+    @build_ids = []
+    parser = Nori.new(:convert_tags_to => lambda { |tag| tag.snakecase.to_sym})
+    builds =  ensure_array_of_objects(parser.parse(xml)[:builds][:build])
+    builds.each do |b|
+      @build_ids.push(b[:@id])
+    end
+  end
+end
+
+class BuildDependency
+  attr_reader :build_id, :build_type
+  def initialize(build_id, build_type)
+    @build_id = build_id
+    @build_type = build_type
+  end
+end
+
+class Build
+  attr_reader :build_id, :dependencies
+  def initialize(xml)
+    @dependencies = []
+    parser = Nori.new(:convert_tags_to => lambda { |tag| tag.snakecase.to_sym})
+    build = parser.parse(xml)[:build]
+    @build_id = build[:@id]
+    dependencies = build[:artifact_dependencies][:build]
+    dependencies.each do |d|
+      @dependencies.push(BuildDependency.new(d[:@id], d[:@build_type_id]))
     end
   end
 end
