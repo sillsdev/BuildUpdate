@@ -130,10 +130,10 @@ if $options[:build_type].nil?
   build_types = TeamCityBuilds.new(build_types_xml)
 
   build_name = os_specific?(:build, $options)
-  abort("You need to specify build!\nPossible Name:\n  #{builds.names.values.join("\n  ")}") if build_name.nil?
+  abort("You need to specify build!\nPossible Name:\n  #{build_types.names.values.join("\n  ")}") if build_name.nil?
 
   build_type = build_types.ids[build_name]
-  abort("Build '#{build_name}' not Found!\nPossible Names:\n  #{builds.names.values.join("\n  ")}") if build_type.nil?
+  abort("Build '#{build_name}' not Found!\nPossible Names:\n  #{build_types.names.values.join("\n  ")}") if build_type.nil?
   verbose("Selected: project=#{project_name}, build_name=#{build_name} => build_type=#{build_type}")
 else
   build_type = $options[:build_type]
