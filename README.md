@@ -17,8 +17,8 @@ Ubuntu 12.04 Install Requirements
 
 Windows Install Requirements
 ----------------------------
-1. You need a way to run shell scripts, e.g. [Cygwin](http://www.cygwin.com/) or [msysgit](https://code.google.com/p/msysgit/) (which includes Git Bash)
-2. install Ruby (http://rubyinstaller.org/downloads/)
+1. You need a way to run shell scripts, e.g. [Cygwin](http://www.cygwin.com/) or [msysgit](http://msysgit.github.io/) (which includes Git Bash)
+2. install Ruby (http://rubyinstaller.org/downloads/ -- use 1.9.x)
 3. `gem install bundler`
 4. `git clone https://github.com/chrisvire/BuildUpdate`
 5. `cd BuildUpdate`
