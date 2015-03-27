@@ -3,7 +3,7 @@ BuildUpdate
 
 Summary
 -------
-Manages a bash script that update the current build environment based on TeamCity artifact dependencies.
+Manages a bash script that update the current build environment based on TeamCity artifact dependencies.  Ruby 1.9.x is required.  It is known to have issues with with Ruby 2.x and will not work.
 
 Ubuntu 12.04 Install Requirements
 --------------------
@@ -52,7 +52,13 @@ The configuration is in comments at the beginning of the file.  Use the variable
 * build: the name of the TeamCity build configuration
 * build_type: the internal TeamCity buildType id
 
-You can either specify `project` & `build`, or specify `build_type`.
+You can either specify `project` & `build`, or specify `build_type`.  It is better to use `build_type` since it will not change if someone changes the displayed `project` or `build` names (which some people will do without notice and break regenerating the script).  To determine the `build_type`, browse to the build in the TeamCity Web Interface.  For example, browse to http://build.palaso.org and select "libpalaso" project and "palaso-precise64-master Continuous" build and the url will be http://build.palaso.org/viewType.html?buildTypeId=bt322 so the `build_type` is `bt322`.
+
+```bash
+#!/bin/bash
+# server=build.palaso.org
+# build_type=bt322
+```
 
 You can declare different values for these parameters for each OS (windows, linux, osx, unix).  The most specific will be used. For example:
 
@@ -63,3 +69,9 @@ You can declare different values for these parameters for each OS (windows, linu
 # build.windows=WeSay-win32-1.4-continuous
 # build.linux=WeSay-precise64-DefaultMono Continuous
 ```
+
+Developers
+----------
+Please reports issues through [repo issues](https://github.com/chrisvire/BuildUpdate/issues/).
+If you like to contribute, please fork the repo and send pull requests.
+I will document debugging tips on the [repo wiki](https://github.com/chrisvire/BuildUpdate/wiki).
