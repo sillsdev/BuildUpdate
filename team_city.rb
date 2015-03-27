@@ -18,7 +18,8 @@ end
 class ArtifactDependency
   attr_accessor :clean_destination_directory, :path_rules, :exclusion_rules, :revision_name, :revision_value, :build_type
 
-  def initialize(props)
+  def initialize(build_type, props)
+    @build_type = build_type
     @clean_destination_directory = false
     @path_rules = {}
     @exclusion_rules = {}
@@ -42,8 +43,6 @@ class ArtifactDependency
               end
             end
           end
-        when 'source_buildTypeId'
-          @build_type = value
         else
           self.send("#{name.snakecase}=", value)
       end
@@ -65,7 +64,8 @@ class ArtifactDependencies
     deps = ensure_array_of_objects( parser.parse(xml)[:artifact_dependencies][:artifact_dependency])
     deps.each do |d|
       props = d[:properties][:property]
-      obj = ArtifactDependency.new(props)
+      build_type = d[:source_build_type][:@id]
+      obj = ArtifactDependency.new(build_type, props)
       @dependencies.push(obj)
     end
   end

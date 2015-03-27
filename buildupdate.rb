@@ -111,7 +111,7 @@ root_dir = $options[:root_dir]
 verbose("Options: #{$options}")
 
 server = $options[:server]
-rest_url = "http://#{server}/guestAuth/app/rest/7.0"
+rest_url = "http://#{server}/guestAuth/app/rest/9.0"
 rest_api = RestClient::Resource.new(rest_url) #, :headers => { :accept => "application/json"})
 repo_url = "http://#{server}/guestAuth/repository"
 repo_api = RestClient::Resource.new(repo_url)
@@ -173,13 +173,16 @@ build_type_xml = rest_api[req].get
 verbose("BuildType: req:#{req}\nxml: #{build_type_xml}")
 build = BuildType.new(build_type_xml)
 
+
 vcs = nil
-unless build.vcs_root_id.nil?
-  req = "/vcs-roots/id:#{build.vcs_root_id}"
-  vcs_xml = rest_api[req].get
-  verbose("VCS req:#{req}\nxml:#{vcs_xml}")
-  vcs = VCSRoot.new(vcs_xml)
-end
+#Bug: vcs-roots not accessible via guestAuth
+# https://youtrack.jetbrains.com/issue/TW-40586
+#unless build.vcs_root_id.nil?
+#  req = "/vcs-roots/id:#{build.vcs_root_id}"
+#  vcs_xml = rest_api[req].get
+#  verbose("VCS req:#{req}\nxml:#{vcs_xml}")
+#  vcs = VCSRoot.new(vcs_xml)
+#end
 
 $script.lines.push('')
 [
@@ -205,6 +208,7 @@ deps.dependencies.each_with_index do |d, i|
   build_type = BuildType.new(build_type_xml)
 
   #work around bug in TC 9.0 implementation of 7.0 API
+  verbose("build_type.url: #{build_type.url}")
   url_build_type = URI.parse(build_type.url).query.split(/=/)[1]
   if d.build_type != url_build_type
     d.build_type = url_build_type
@@ -223,13 +227,15 @@ deps.dependencies.each_with_index do |d, i|
     "    paths: #{d.path_rules}"
   ].each { |line| $script.lines.push(comment(line)) }
 
-  unless build_type.vcs_root_id.nil?
-    req = "/vcs-roots/id:#{build_type.vcs_root_id}"
-    vcs_xml = rest_api[req].get
-    verbose("VCS req:#{req}\nxml:#{vcs_xml}")
-    vcs = VCSRoot.new(vcs_xml)
-    $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{build_type.resolve(vcs.branch_name)}]"))
-  end
+  #Bug: vcs-roots not accessible via guestAuth
+  # https://youtrack.jetbrains.com/issue/TW-40586
+  #unless build_type.vcs_root_id.nil?
+  #  req = "/vcs-roots/id:#{build_type.vcs_root_id}"
+  #  vcs_xml = rest_api[req].get
+  #  verbose("VCS req:#{req}\nxml:#{vcs_xml}")
+  #  vcs = VCSRoot.new(vcs_xml)
+  #  $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{build_type.resolve(vcs.branch_name)}]"))
+  #end
 end
 
 
