@@ -5,7 +5,7 @@ require 'rest_client'
 require 'optparse'
 require 'nori'
 require 'set'
-require 'uri'
+require 'io/console'
 
 require 'awesome_print'
 
@@ -111,7 +111,14 @@ root_dir = $options[:root_dir]
 verbose("Options: #{$options}")
 
 server = $options[:server]
-rest_url = "http://#{server}/guestAuth/app/rest/7.0"
+
+print "#{server} Username: "
+username = $stdin.gets.chomp
+print "Password: "
+password = $stdin.noecho(&:gets).chomp
+$stdout.puts "\nGenerating..."
+
+rest_url = "http://#{username}:#{password}@#{server}/httpAuth/app/rest/9.0"
 rest_api = RestClient::Resource.new(rest_url) #, :headers => { :accept => "application/json"})
 repo_url = "http://#{server}/guestAuth/repository"
 repo_api = RestClient::Resource.new(repo_url)
@@ -203,12 +210,6 @@ deps.dependencies.each_with_index do |d, i|
   build_type_xml = rest_api[req].get
   verbose("BuildType[#{i}] req:#{req}\nxml:#{build_type_xml}")
   build_type = BuildType.new(build_type_xml)
-
-  #work around bug in TC 9.0 implementation of 7.0 API
-  url_build_type = URI.parse(build_type.url).query.split(/=/)[1]
-  if d.build_type != url_build_type
-    d.build_type = url_build_type
-  end
 
   if tagged_build_dependencies.has_key?(d.build_type)
     d.use_tagged_build(tagged_build_dependencies[d.build_type])
