@@ -66,6 +66,7 @@ class ArtifactDependencies
     deps.each do |d|
       props = d[:properties][:property]
       obj = ArtifactDependency.new(props)
+      obj.build_type = d[:source_build_type][:@id]
       @dependencies.push(obj)
     end
   end
