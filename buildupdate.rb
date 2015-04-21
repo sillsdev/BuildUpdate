@@ -52,6 +52,13 @@ def debug(message)
   $stderr.puts "DEBUG: #{message}"
 end
 
+$warned_missing_view = false
+def warn_missing_view_build_configuration
+  unless $warned_missing_view
+    warn "Failed to get VCS information. Enable 'View build configuration settings' for guest user."
+    $warned_missing_view = true
+  end
+end
 
 cmd_options = {}
 OptionParser.new do |opts|
@@ -177,12 +184,17 @@ build = BuildType.new(build_type_xml)
 vcs = nil
 #Bug: vcs-roots not accessible via guestAuth
 # https://youtrack.jetbrains.com/issue/TW-40586
-#unless build.vcs_root_id.nil?
-#  req = "/vcs-roots/id:#{build.vcs_root_id}"
-#  vcs_xml = rest_api[req].get
-#  verbose("VCS req:#{req}\nxml:#{vcs_xml}")
-#  vcs = VCSRoot.new(vcs_xml)
-#end
+unless build.vcs_root_id.nil?
+  req = "/vcs-roots/id:#{build.vcs_root_id}"
+  verbose("VCS req:#{req}")
+  begin
+    vcs_xml = rest_api[req].get
+    verbose("xml:#{vcs_xml}")
+    vcs = VCSRoot.new(vcs_xml)
+  rescue
+    warn_missing_view_build_configuration
+  end
+end
 
 $script.lines.push('')
 [
@@ -229,13 +241,17 @@ deps.dependencies.each_with_index do |d, i|
 
   #Bug: vcs-roots not accessible via guestAuth
   # https://youtrack.jetbrains.com/issue/TW-40586
-  #unless build_type.vcs_root_id.nil?
-  #  req = "/vcs-roots/id:#{build_type.vcs_root_id}"
-  #  vcs_xml = rest_api[req].get
-  #  verbose("VCS req:#{req}\nxml:#{vcs_xml}")
-  #  vcs = VCSRoot.new(vcs_xml)
-  #  $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{build_type.resolve(vcs.branch_name)}]"))
-  #end
+  unless build_type.vcs_root_id.nil?
+    req = "/vcs-roots/id:#{build_type.vcs_root_id}"
+    begin
+      vcs_xml = rest_api[req].get
+      verbose("VCS req:#{req}\nxml:#{vcs_xml}")
+      vcs = VCSRoot.new(vcs_xml)
+      $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{build_type.resolve(vcs.branch_name)}]"))
+    rescue
+      warn_missing_view_build_configuration
+    end
+  end
 end
 
 
