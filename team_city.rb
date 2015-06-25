@@ -16,7 +16,7 @@ def ensure_array_of_objects(obj)
 end
 
 class ArtifactDependency
-  attr_accessor :clean_destination_directory, :path_rules, :exclusion_rules, :revision_name, :revision_value, :build_type
+  attr_accessor :clean_destination_directory, :path_rules, :exclusion_rules, :revision_name, :revision_value, :build_type, :revision_branch
 
   def initialize(build_type, props)
     @build_type = build_type
@@ -44,6 +44,7 @@ class ArtifactDependency
             end
           end
         else
+          raise ArgumentError, "Unsupported Feature: #{name}.  Working on it!  --chrish" if name.snakecase == "revision_branch"
           self.send("#{name.snakecase}=", value)
       end
     end

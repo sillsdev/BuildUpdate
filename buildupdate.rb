@@ -15,6 +15,16 @@ require "#{path}/team_city.rb"
 require "#{path}/script_actions.rb"
 require "#{path}/update_script.rb"
 
+def pretty_xml(xml)
+  begin
+    require 'nokogiri-pretty'
+    doc = Nokogiri::XML(xml)
+    doc.human
+  rescue LoadError
+    xml
+  end
+end
+
 def os
   @os ||= (
   host_os = RbConfig::CONFIG['host_os']
@@ -162,7 +172,9 @@ unless $options[:build_tag].nil?
   end
 end
 
-deps_xml = rest_api["/buildTypes/id:#{build_type}/artifact-dependencies"].get
+deps_req = "/buildTypes/id:#{build_type}/artifact-dependencies"
+deps_xml = rest_api[deps_req].get
+verbose("Artifact Dependencies: req:#{deps_req}\nxml: #{pretty_xml(deps_xml)}")
 abort("BuildType '#{build_type}' not Found!") if deps_xml.nil?
 
 deps = ArtifactDependencies.new(deps_xml)
@@ -177,7 +189,7 @@ end
 
 req = "/buildTypes/id:#{build_type}"
 build_type_xml = rest_api[req].get
-verbose("BuildType: req:#{req}\nxml: #{build_type_xml}")
+verbose("BuildType: req:#{req}\nxml: #{pretty_xml(build_type_xml)}")
 build = BuildType.new(build_type_xml)
 
 
@@ -189,7 +201,7 @@ unless build.vcs_root_id.nil?
   verbose("VCS req:#{req}")
   begin
     vcs_xml = rest_api[req].get
-    verbose("xml:#{vcs_xml}")
+    verbose("xml:#{pretty_xml(vcs_xml)}")
     vcs = VCSRoot.new(vcs_xml)
   rescue
     warn_missing_view_build_configuration
@@ -216,7 +228,7 @@ $script.lines.push(comment('dependencies:'))
 deps.dependencies.each_with_index do |d, i|
   req = "/buildTypes/id:#{d.build_type}"
   build_type_xml = rest_api[req].get
-  verbose("BuildType[#{i}] req:#{req}\nxml:#{build_type_xml}")
+  verbose("BuildType[#{i}] req:#{req}\nxml:#{pretty_xml(build_type_xml)}")
   build_type = BuildType.new(build_type_xml)
 
   #work around bug in TC 9.0 implementation of 7.0 API
@@ -245,7 +257,7 @@ deps.dependencies.each_with_index do |d, i|
     req = "/vcs-roots/id:#{build_type.vcs_root_id}"
     begin
       vcs_xml = rest_api[req].get
-      verbose("VCS req:#{req}\nxml:#{vcs_xml}")
+      verbose("VCS req:#{req}\nxml:#{pretty_xml(vcs_xml)}")
       vcs = VCSRoot.new(vcs_xml)
       $script.lines.push(comment("    VCS: #{vcs.repository_path} [#{build_type.resolve(vcs.branch_name)}]"))
     rescue
@@ -269,7 +281,7 @@ deps.dependencies.each do |d|
     elsif src.glob?
       ivy_api_call = "/download/#{d.build_type}/#{d.revision_value}/teamcity-ivy.xml"
       ivy_xml = repo_api[ivy_api_call].get
-      verbose("glob: src=#{src}, dst=#{path_rules_dst}, api=#{ivy_api_call}\n\n#{ivy_xml}")
+      verbose("glob: src=#{src}, dst=#{path_rules_dst}, api=#{ivy_api_call}\n\n#{pretty_xml(ivy_xml)}")
       ivy = IvyArtifacts.new(ivy_xml)
       matching_files = ivy.artifacts.select { |a| File.fnmatch(src, a, File::FNM_DOTMATCH)}
       files.concat(matching_files)
