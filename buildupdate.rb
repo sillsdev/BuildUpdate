@@ -331,7 +331,7 @@ deps.dependencies.each do |d|
         dst_dir = dst
       end
       dst_dirs << dst_dir
-      dst_files << %W(#{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f} #{File.join(root_dir,dst_file)})
+      dst_files << %W(#{repo_url}/download/#{d.build_type}/#{d.revision_value}/#{f}#{"?#{URI.encode_www_form(:branch => d.revision_branch)}" unless d.revision_branch.nil?} #{File.join(root_dir,dst_file)})
       verbose("Added: #{dst_files[-1]}")
     end
   end

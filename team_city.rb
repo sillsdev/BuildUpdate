@@ -44,7 +44,6 @@ class ArtifactDependency
             end
           end
         else
-          raise ArgumentError, "Unsupported Feature: #{name}.  Working on it!  --chrish" if name.snakecase == "revision_branch"
           self.send("#{name.snakecase}=", value)
       end
     end
@@ -54,7 +53,6 @@ class ArtifactDependency
     @revision_name = "tcbuildid"
     @revision_value = "#{build_id}.tcbuildid"
   end
-
 end
 
 class ArtifactDependencies
