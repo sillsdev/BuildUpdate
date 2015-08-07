@@ -59,15 +59,15 @@ class ScriptActions
   end
 
   def curl_update(src, dst)
-    "curl -# -L -z #{dst} -o #{dst} #{src}"
+    "curl -# -L -H "Pragma: no-cache" -H "Cache-Control: no-cache" -z #{dst} -o #{dst} #{src}"
   end
 
   def curl_replace(src, dst)
-    "curl -# -L -o #{dst} #{src}"
+    "curl -# -L -H "Pragma: no-cache" -H "Cache-Control: no-cache" -o #{dst} #{src}"
   end
 
   def wget_update(src, dst)
-    "wget -q -L -N #{src}"
+    "wget --no-cache -q -L -N #{src} -O #{dst}"
   end
 
   def unzip(zip_file, dst)
@@ -242,9 +242,7 @@ goto:eof
 :copy_wget
 echo. %~2
 echo. %~1
-pushd %~2\\..\\
 #{wget_update('%~1', '%~2')}
-popd
 goto:eof
     eos
   end
