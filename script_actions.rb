@@ -137,10 +137,14 @@ fi
 
 copy_wget() {
 echo "wget: $2 <= $1"
-f=$(basename $2)
-d=$(dirname $2)
-cd $d
-#{wget_update('$1', '$f')}
+f1=$(basename $1)
+d1=$(dirname $1)
+f2=$(basename $2)
+d2=$(dirname $2)
+cd $d2
+#{wget_update('$1', '$f2')}
+#{comment("wget has no true equivalent of curl's -o option.")}
+if [ "$f1" != "$f2" ]; then mv $f1 $f2; fi
 cd -
 }
 eos
