@@ -272,6 +272,7 @@ dst_files = []
 unzip_files = []
 deps.dependencies.each do |d|
   d.path_rules.each do |path_rules_key,path_rules_dst|
+    next if path_rules_key.to_s.empty? && path_rules_dst.to_s.empty?  # Ignore blank lines in path rules
     src = path_rules_key.gsub("\\", '/')
     path_rules_dst.gsub!("\\", '/')
     files = []
