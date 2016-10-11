@@ -128,7 +128,7 @@ root_dir = $options[:root_dir]
 verbose("Options: #{$options}")
 
 server = $options[:server]
-rest_url = "http://#{server}/guestAuth/app/rest/9.0"
+rest_url = "http://#{server}/guestAuth/app/rest/10.0"
 rest_api = RestClient::Resource.new(rest_url) #, :headers => { :accept => "application/json"})
 repo_url = "http://#{server}/guestAuth/repository"
 repo_api = RestClient::Resource.new(repo_url)

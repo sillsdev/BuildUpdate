@@ -64,8 +64,11 @@ class ArtifactDependencies
     deps.each do |d|
       props = d[:properties][:property]
       build_type = d[:source_build_type][:@id]
-      obj = ArtifactDependency.new(build_type, props)
-      @dependencies.push(obj)
+      disabled = d[:@disabled]
+      unless disabled
+        obj = ArtifactDependency.new(build_type, props)
+        @dependencies.push(obj)
+      end
     end
   end
 end
