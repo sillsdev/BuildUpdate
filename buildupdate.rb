@@ -7,7 +7,7 @@ require 'nori'
 require 'set'
 require 'uri'
 
-require 'awesome_print'
+#require 'awesome_print'
 
 path = File.dirname(File.expand_path($0))
 require "#{path}/core_ext.rb"
@@ -15,9 +15,25 @@ require "#{path}/team_city.rb"
 require "#{path}/script_actions.rb"
 require "#{path}/update_script.rb"
 
+# these methods are already present in Active Support
+module Kernel
+  def silence_warnings
+    with_warnings(nil) { yield }
+  end
+
+  def with_warnings(flag)
+    old_verbose, $VERBOSE = $VERBOSE, flag
+    yield
+  ensure
+    $VERBOSE = old_verbose
+  end
+end unless Kernel.respond_to? :silence_warnings
+
 def pretty_xml(xml)
   begin
-    require 'nokogiri-pretty'
+    silence_warnings do
+      require 'nokogiri-pretty'
+    end
     doc = Nokogiri::XML(xml)
     doc.human
   rescue LoadError
