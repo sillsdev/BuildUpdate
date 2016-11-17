@@ -7,7 +7,7 @@ require 'nori'
 require 'set'
 require 'uri'
 
-#require 'awesome_print'
+require 'awesome_print'
 
 path = File.dirname(File.expand_path($0))
 require "#{path}/core_ext.rb"
@@ -29,11 +29,13 @@ module Kernel
   end
 end unless Kernel.respond_to? :silence_warnings
 
+silence_warnings do
+  require 'nokogiri'
+  require 'nokogiri-pretty'
+end
+
 def pretty_xml(xml)
   begin
-    silence_warnings do
-      require 'nokogiri-pretty'
-    end
     doc = Nokogiri::XML(xml)
     doc.human
   rescue LoadError
