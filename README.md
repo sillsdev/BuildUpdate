@@ -3,27 +3,62 @@ BuildUpdate
 
 Summary
 -------
-Manages a bash script that update the current build environment based on TeamCity artifact dependencies.  Ruby 1.9.x is required.  It is known to have issues with with Ruby 2.x and will not work.
+This Ruby scripts manages a bash script that update the build environment on a developer's machine
+to match the environment used on TeamCity.  The generated bash script will download
+the artifact dependencies needed for the project.
 
-Ubuntu 12.04 Install Requirements
+Windows Install Requirements
+----------------------------
+* Install bash via [msysgit](http://msysgit.github.io/) (which includes Git Bash) or [Cygwin](http://www.cygwin.com/)
+* Install the latest [Ruby](http://rubyinstaller.org/downloads/) -- Tested 1.9.3 & 2.3.1
+  * Check "Add Ruby executables to your PATH"
+  * Check "Associate .rb and .rbw files with this Ruby installation"
+* `gem install bundler`
+  * With Ruby 2.3.1, you will get this error `Unable to download data from https://rubygems.org/ - SSL_connect returned=1...` 
+  * do the following [workaround](https://gist.github.com/eyecatchup/20a494dff3094059d71d) from a cmd window (not git bash)
+  
+```
+# 1. Add insecure source
+> gem sources -a http://rubygems.org/
+https://rubygems.org is recommended for security over http://rubygems.org/
+
+Do you want to add this insecure source? [yn]  y
+http://rubygems.org/ added to sources
+
+# 2. Remove secure source
+> gem sources -r https://rubygems.org/
+https://rubygems.org/ removed from sources
+
+# 3. Update source cache
+> gem sources -u
+source cache successfully updated
+```
+
+* `git clone https://github.com/chrisvire/BuildUpdate`
+* `cd BuildUpdate`
+* `bundle install`
+
+Ubuntu 16.04 & 14.04 Install Requirements
 --------------------
-1. `sudo apt-get install ruby1.9.1 ruby1.9.1-dev libxml2-dev libxslt-dev`
-2. `sudo update-alternatives --config ruby` (and select ruby 1.9.1)
+The default version of Ruby for Ubuntu 16.04 is 2.3.1.
+The default version of Ruby for Ubuntu 14.04 is 1.9.3.
+
+1. `sudo apt-get install ruby ruby-dev zlib1g-dev`
 2. `sudo gem install bundler`
 3. `git clone https://github.com/chrisvire/BuildUpdate`
 4. `cd BuildUpdate`
 5. `bundle install`
-6. `sudo bundle exec gem pristine nokogiri` (this removes a warning about library incompatibility)
 
-Windows Install Requirements
-----------------------------
-1. You need a way to run shell scripts, e.g. [Cygwin](http://www.cygwin.com/) or [msysgit](http://msysgit.github.io/) (which includes Git Bash)
-2. install Ruby (http://rubyinstaller.org/downloads/ -- use 1.9.x)
-3. `gem install bundler`
-4. `git clone https://github.com/chrisvire/BuildUpdate`
-5. `cd BuildUpdate`
-6. `bundle install`
+Ubuntu 12.04 Install Requirements
+--------------------
+The default version of Ruby in Ubuntu 12.04 is Ruby 1.8.  This script requires
+Ruby 1.9.1 so a specific ruby version package must be specified.
 
+1. `sudo apt-get install ruby1.9.1 ruby1.9.1-dev zlib1g-dev`
+2. `sudo gem install bundler`
+3. `git clone https://github.com/chrisvire/BuildUpdate`
+4. `cd BuildUpdate`
+5. `bundle install`
 
 Create the shell script
 ----------
