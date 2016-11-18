@@ -3,14 +3,17 @@ GEM
   specs:
     awesome_print (1.7.0)
     mime-types (2.0)
-    mini_portile (0.5.3)
-    nokogiri (1.6.0)
-      mini_portile (~> 0.5.0)
-    nokogiri (1.6.0-x86-mingw32)
-      mini_portile (~> 0.5.0)
+    mini_portile2 (2.1.0)
+    nokogiri (1.6.8)
+      mini_portile2 (~> 2.1.0)
+      pkg-config (~> 1.1.7)
+    nokogiri (1.6.8-x86-mingw32)
+      mini_portile2 (~> 2.1.0)
+      pkg-config (~> 1.1.7)
     nokogiri-pretty (0.1.0)
       nokogiri
     nori (2.6.0)
+    pkg-config (1.1.7)
     rest-client (1.6.7)
       mime-types (>= 1.16)
 
@@ -19,11 +22,11 @@ PLATFORMS
   x86-mingw32
 
 DEPENDENCIES
-  awesome_print
+  awesome_print (= 1.7.0)
   mime-types (= 2.0)
-  nokogiri (= 1.6.0)
-  nokogiri-pretty
-  nori
+  nokogiri (= 1.6.8)
+  nokogiri-pretty (= 0.1.0)
+  nori (= 2.6.0)
   rest-client (= 1.6.7)
 
 BUNDLED WITH
