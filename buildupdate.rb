@@ -122,8 +122,7 @@ OptionParser.new do |opts|
 
   # Really need to look up the build type based on environment
   opts.on('-t', '--build_type BUILD_TYPE', 'Specify the BuildType in TeamCity') do |t|
-    abort("Invalid build_type: #{t}.  Should be bt[0-9]+") if t !~ /^bt[0-9]+/
-    cmd_options[:build_type] = t
+     cmd_options[:build_type] = t
   end
 
   opts.on('-f', '--file SHELL_FILE', 'Specify the shell file to update (default: buildupdate.sh') do |f|
@@ -166,10 +165,15 @@ if $options[:build_type].nil?
   build_types = TeamCityBuilds.new(build_types_xml)
 
   build_name = os_specific?(:build, $options)
-  abort("You need to specify build!\nPossible Name:\n  #{build_types.names.values.join("\n  ")}") if build_name.nil?
+  build_type = build_types.ids[build_name] unless build_name.nil?
 
-  build_type = build_types.ids[build_name]
-  abort("Build '#{build_name}' not Found!\nPossible Names:\n  #{build_types.names.values.join("\n  ")}") if build_type.nil?
+  if build_type.nil?
+    possible_names = Array.new
+    build_types.names.each do |build_type, name|
+      possible_names.push("#{build_type} : #{name}")
+    end
+    abort("Missing Build!\nPossible 'Build Type : Build Name' pairs:\n  #{possible_names.join("\n  ")}")
+  end
   verbose("Selected: project=#{project_name}, build_name=#{build_name} => build_type=#{build_type}")
 else
   build_type = $options[:build_type]
@@ -191,9 +195,12 @@ unless $options[:build_tag].nil?
 end
 
 deps_req = "/buildTypes/id:#{build_type}/artifact-dependencies"
-deps_xml = rest_api[deps_req].get
+begin
+  deps_xml = rest_api[deps_req].get
+rescue
+  abort("BuildType '#{build_type}' not Found!")
+end
 verbose("Artifact Dependencies: req:#{deps_req}\nxml: #{pretty_xml(deps_xml)}")
-abort("BuildType '#{build_type}' not Found!") if deps_xml.nil?
 
 deps = ArtifactDependencies.new(deps_xml)
 abort('Dependencies not found!') if deps.nil?
