@@ -98,7 +98,7 @@ dependencies in Team City change, then the bash scripts need to be updated. Run 
 
 ```
 $ cd to/src/repo
-$ ../../path/to/BuildUpdate/buildupdate.rb path/to/getDependencies-linux.sh
+$ ../../path/to/BuildUpdate/buildupdate.rb -f path/to/getDependencies-linux.sh
 ```
 
 The Ruby scripts will look at configuration at the top of the bash script to determine
