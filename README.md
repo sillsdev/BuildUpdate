@@ -1,16 +1,15 @@
-BuildUpdate
-===========
+# BuildUpdate
 
-Summary
--------
-This Ruby scripts manages a bash script that update the build environment on a developer's machine
-to match the environment used on TeamCity.  The generated bash script will download
-the artifact dependencies needed for the project.
+## Summary
+This Ruby scripts manages a bash script that updates the build environment on a 
+developer's machine to match the environment used on TeamCity.  The generated
+bash script will download the artifact dependencies needed for the project.
 
-Windows Install Requirements
-----------------------------
+## Installation
+---
+### Windows Install Requirements
 * Install bash via [msysgit](http://msysgit.github.io/) (which includes Git Bash) or [Cygwin](http://www.cygwin.com/)
-* Install the latest [Ruby](http://rubyinstaller.org/downloads/) -- Tested 1.9.3 & 2.3.1
+* Install the latest [Ruby](http://rubyinstaller.org/downloads/) -- Tested 2.3.1 & 1.9.3
   * Check "Add Ruby executables to your PATH"
   * Check "Associate .rb and .rbw files with this Ruby installation"
 * `gem install bundler`
@@ -38,8 +37,7 @@ source cache successfully updated
 * `cd BuildUpdate`
 * `bundle install`
 
-Ubuntu 16.04 & 14.04 Install Requirements
---------------------
+### Ubuntu 16.04 & 14.04 Install Requirements
 The default version of Ruby for Ubuntu 16.04 is 2.3.1.
 The default version of Ruby for Ubuntu 14.04 is 1.9.3.
 
@@ -49,8 +47,7 @@ The default version of Ruby for Ubuntu 14.04 is 1.9.3.
 4. `cd BuildUpdate`
 5. `bundle install`
 
-Ubuntu 12.04 Install Requirements
---------------------
+### Ubuntu 12.04 Install Requirements
 The default version of Ruby in Ubuntu 12.04 is Ruby 1.8.  This script requires
 Ruby 1.9.1 so a specific ruby version package must be specified.
 
@@ -60,53 +57,116 @@ Ruby 1.9.1 so a specific ruby version package must be specified.
 4. `cd BuildUpdate`
 5. `bundle install`
 
-Create the shell script
-----------
+## Setup
+---
+BuildUpdate will need to generate a bash script for each platform (e.g. Windows or Linux)
+for the project.  There is normally a continuous build setup for each platform.  For example,
+browse to http://build.palaso.org and select "libpalaso" project and 
+"palaso-precise64-master Continuous" build and the url will be 
+http://build.palaso.org/viewType.html?buildTypeId=bt322.  You will see `buildTypeId=XXXXX` 
+in the query string.  BuildUpdate refers to this as `build_type` with a value of `bt322`.
+   
+### Create the shell script
+To create the initial shell script, determine the `build_type` and run the following command
+(of cource, windows users should used backslashes):
+
+```
+cd to/src/repo
+../path/to/BuildUpdate/buildupdate.rb -f getDependencies-linux.sh -t YOUR_BUILD_TYPE
+```
+
+### Create the shell script in a sub-directory
+If the shell script will be in a sub-directory of the project repo, you need to specify
+the root directory for where to run the update commands relative to the sub-directory.  
+For example, if you you decide to put these shell scripts in the `build` sub-directory,
+then run the following command:
+
+```
+$ cd to/src/repo/build
+$ ../../path/to/BuildUpdate/buildupdate.rb -r .. -f getDependencies-linux.sh -t YOUR_BUILD_TYPE
+```
+
 1. Create a buildupdate.sh script in your build directory with configuration (see below).  
 2. Run the buildupdate.rb script to update buildupdate.sh with all of the calls to update the current build environment.
 3. Commit the buildupdate.sh script to source control.
 
-When you change the dependencies
-----------
-1. Run `buildupdate.rb`, as in
+## Updates
+---
+### Update scripts when dependencies change
+These generated bash scripts should be committed into the source code respository.  If the 
+dependencies in Team City change, then the bash scripts need to be updated. Run the following command:
 
-`c:\dev\bloom> c:\dev\bin\BuildUpdate\buildupdate.rb -f buildupdate.sh`
+```
+$ cd to/src/repo
+$ ../../path/to/BuildUpdate/buildupdate.rb path/to/getDependencies-linux.sh
+```
 
-The updated version of buildupdate.sh will be part of your commit.
+The Ruby scripts will look at configuration at the top of the bash script to determine
+the `build_type` and the `root_dir`.
 
-When you change branches
-----------
-1. Run `buildupdate.sh` to get the correct dependencies for that branch.
+### Working in a different branch
+If you are working in a long-running branch, you might have different dependencies 
+that then master `build_type`.  Setup a new `build_type` and commit a bash script to the
+branch (and be careful not to push it back to master).
+ 
+## Information
+---
+### File format
 
-File format
------------
-
-The configuration is in comments at the beginning of the file.  Use the variables: 
+The configuration is in comments at the beginning of the file.  The variables used are: 
 * server: specifies the the hostname of the TeamCity Server
 * project: the name of the TeamCity project
 * build: the name of the TeamCity build configuration
-* build_type: the internal TeamCity buildType id
+* build_type: the TeamCity buildType id
+* root_dir: specify the directory relative to the location of the script where the
+commands of the script should be run
 
-You can either specify `project` & `build`, or specify `build_type`.  It is better to use `build_type` since it will not change if someone changes the displayed `project` or `build` names (which some people will do without notice and break regenerating the script).  To determine the `build_type`, browse to the build in the TeamCity Web Interface.  For example, browse to http://build.palaso.org and select "libpalaso" project and "palaso-precise64-master Continuous" build and the url will be http://build.palaso.org/viewType.html?buildTypeId=bt322 so the `build_type` is `bt322`.
-
-```bash
-#!/bin/bash
-# server=build.palaso.org
-# build_type=bt322
+### Specifying a build
+To specify a build you can either do:
+```
+$ ../../path/to/BuildUpdate/buildupdate -f getDependencies-linux.sh -t YOUR_BUILD_TYPE
+```
+Or:
+```
+$ ../../path/to/BuildUpdate/buildupdate -f getDependencies-linux.sh -p "PROJECT_NAME" -b "BUILD_NAME"
 ```
 
-You can declare different values for these parameters for each OS (windows, linux, osx, unix).  The most specific will be used. For example:
+Since the `PROJECT_NAME` and `BUILD_NAME` are just labels which can be changed through
+the Team City user interface, you should use the `build_type` instead (it doesn't change).
 
-```bash
-#!/bin/bash
-# server=build.palaso.org
-# project=WeSay Windows
-# build.windows=WeSay-win32-1.4-continuous
-# build.linux=WeSay-precise64-DefaultMono Continuous
+### Getting list of projects from the command line
+You can run the ruby script without parameters to get a list of projects.
+
+```
+$ ../../path/to/BuildUpdate/buildupdate
+You need to specify project!
+Possible Names:
+  <Root project>
+  Adapt It
+  Bloom
+  BloomLibrary.org
+  BloomPlayer
 ```
 
-Developers
-----------
+Then you can use `-p PROJECT_NAME` to get a list of `build_type : build_name` pairs.
+
+ ```
+ $ ../../path/to/BuildUpdate/buildupdate -p Bloom
+Missing Build!
+Possible 'Build Type : Build Name' pairs:
+  BloomReleaseInternal37 : Bloom 3.7 Release Internal
+  Bloom_Bloom37linux64Auto : Bloom-3.7-Linux64-Continuous
+  bt222 : Bloom-Default-Continuous
+  bt403 : Bloom-Default-Linux64-Continuous
+  bt430 : Bloom-Master-JS-Tests
+  bt396 : bloom-win32-static-dependencies
+  BPContinuous : BloomPlayer-Master-Continuous
+  bt434 : GtkUtils
+  Bloom_Squirrel : Squirrel
+  Bloom_YouTrackSharp : YouTrackSharp
+```
+## Developers
+---
 Please reports issues through [repo issues](https://github.com/chrisvire/BuildUpdate/issues/).
 If you like to contribute, please fork the repo and send pull requests.
 I will document debugging tips on the [repo wiki](https://github.com/chrisvire/BuildUpdate/wiki).
