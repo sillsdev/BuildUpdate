@@ -33,6 +33,7 @@ class ArtifactDependency
           value.split("\n").each do |line|
             if line =~ /^[+\-]:/
               (op,pattern) = line.split(':')
+              pattern = pattern.delete("\n").delete("\r")
               @exclusion_rules[pattern] = op
             else
               (src,dst) = line.split('=>')
