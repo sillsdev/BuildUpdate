@@ -6,6 +6,7 @@ require 'optparse'
 require 'nori'
 require 'set'
 require 'uri'
+require 'highline/import'
 
 require 'awesome_print'
 
@@ -131,6 +132,10 @@ OptionParser.new do |opts|
   end
 end.parse!
 
+$username = ENV["BUILDUPDATE_USER"] || ask("Enter your username: ") { |q| q.echo = true }
+$password = ENV["BUILDUPDATE_PASSWORD"] || ask("Enter your password: ") { |q| q.echo = "*" }
+
+
 
 $script = BuildUpdateScript.new($options[:file])
 def comment(str)
@@ -145,8 +150,8 @@ root_dir = $options[:root_dir]
 verbose("Options: #{$options}")
 
 server = $options[:server]
-rest_url = "http://#{server}/guestAuth/app/rest/10.0"
-rest_api = RestClient::Resource.new(rest_url) #, :headers => { :accept => "application/json"})
+rest_url = "http://#{server}/httpAuth/app/rest/10.0"
+rest_api = RestClient::Resource.new(rest_url, :user=>$username, :password => $password) #, :headers => { :accept => "application/json"})
 repo_url = "http://#{server}/guestAuth/repository"
 repo_api = RestClient::Resource.new(repo_url)
 

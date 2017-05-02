@@ -57,8 +57,16 @@ Ruby 1.9.1 so a specific ruby version package must be specified.
 4. `cd BuildUpdate`
 5. `bundle install`
 
+## Authentication
+Team City requires authentication to access project configuration.  The script will prompt
+for the username and password.  You can specify these in the following environment variables:
+
+```
+BUILDUPDATE_USER
+BUILDUPDATE_PASSWORD
+```
+
 ## Setup
----
 BuildUpdate will need to generate a bash script for each platform (e.g. Windows or Linux)
 for the project.  There is normally a continuous build setup for each platform.  For example,
 browse to http://build.palaso.org and select "libpalaso" project and 
