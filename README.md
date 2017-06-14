@@ -13,7 +13,7 @@ bash script will download the artifact dependencies needed for the project.
   * Check "Add Ruby executables to your PATH"
   * Check "Associate .rb and .rbw files with this Ruby installation"
 * `gem install bundler`
-  * With Ruby 2.3.1, you will get this error `Unable to download data from https://rubygems.org/ - SSL_connect returned=1...` 
+  * With Ruby 2.3.1, you may get this error `Unable to download data from https://rubygems.org/ - SSL_connect returned=1...` 
   * do the following [workaround](https://gist.github.com/eyecatchup/20a494dff3094059d71d) from a cmd window (not git bash)
   
 ```
