@@ -59,19 +59,19 @@ class ScriptActions
   end
 
   def curl_update(src, dst)
-    "curl -# -L -z #{dst} -o #{dst} #{src}"
+    "curl -# -L -z \"#{dst}\" -o \"#{dst}\" \"#{src}\""
   end
 
   def curl_replace(src, dst)
-    "curl -# -L -o #{dst} #{src}"
+    "curl -# -L -o \"#{dst}\" \"#{src}\""
   end
 
   def wget_update(src, dst)
-    "wget -q -L -N #{src}"
+    "wget -q -L -N \"#{src}\""
   end
 
   def unzip(zip_file, dst)
-    "unzip -uqo #{zip_file} -d #{dst}"
+    "unzip -uqo #{zip_file} -d \"#{dst}\""
   end
 end
 
@@ -114,10 +114,10 @@ where_curl=$(type -P curl)
 where_wget=$(type -P wget)
 if [ "$where_curl" != "" ]
 then
-copy_curl $1 $2
+copy_curl "$1" "$2"
 elif [ "$where_wget" != "" ]
 then
-copy_wget $1 $2
+copy_wget "$1" "$2"
 else
 echo "Missing curl or wget"
 exit 1
