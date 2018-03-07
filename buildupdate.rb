@@ -105,6 +105,14 @@ OptionParser.new do |opts|
     cmd_options[:server] = s
   end
 
+  opts.on('-u', '--username USER', 'Specify user for authentication on TeamCity Server') do |u|
+    cmd_options[:username] = u
+  end
+
+  opts.on('--password PASSWORD', 'Specify password for authentication on TeamCity Server') do |p|
+    cmd_options[:password] = p
+  end
+
   opts.on('-p', '--project PROJECT', 'Specify the Project in TeamCity') do |p|
     cmd_options[:project] = p
   end
@@ -132,10 +140,12 @@ OptionParser.new do |opts|
   end
 end.parse!
 
-$username = ENV["BUILDUPDATE_USER"] || ask("Enter your username: ") { |q| q.echo = true }
-$password = ENV["BUILDUPDATE_PASSWORD"] || ask("Enter your password: ") { |q| q.echo = "*" }
+$username = ENV["BUILDUPDATE_USER"] || cmd_options[:username]
+$password = ENV["BUILDUPDATE_PASSWORD"] || cmd_options[:password]
 
-
+if !$username.nil? && $password.nil?
+  $password = ask("Enter your password: ") { |q| q.echo = "*" }
+end
 
 $script = BuildUpdateScript.new($options[:file])
 def comment(str)
@@ -150,8 +160,13 @@ root_dir = $options[:root_dir]
 verbose("Options: #{$options}")
 
 server = $options[:server]
-rest_url = "http://#{server}/httpAuth/app/rest/10.0"
-rest_api = RestClient::Resource.new(rest_url, :user=>$username, :password => $password) #, :headers => { :accept => "application/json"})
+if $username.nil?
+  rest_url = "http://#{server}/guestAuth/app/rest/10.0"
+  rest_api = RestClient::Resource.new(rest_url)
+else
+  rest_url = "http://#{server}/httpAuth/app/rest/10.0"
+  rest_api = RestClient::Resource.new(rest_url, :user=>$username, :password => $password) #, :headers => { :accept => "application/json"})
+end
 repo_url = "http://#{server}/guestAuth/repository"
 repo_api = RestClient::Resource.new(repo_url)
 
@@ -202,7 +217,9 @@ end
 deps_req = "/buildTypes/id:#{build_type}/artifact-dependencies"
 begin
   deps_xml = rest_api[deps_req].get
-rescue
+rescue RestClient::Unauthorized, RestClient::Forbidden => err
+  abort("Access denied for buildType '#{build_type}' for user " + ($username.nil? ? "'guest'" : "'#{$username}'"))
+return err.responserescue
   abort("BuildType '#{build_type}' not Found!")
 end
 verbose("Artifact Dependencies: req:#{deps_req}\nxml: #{pretty_xml(deps_xml)}")
