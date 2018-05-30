@@ -132,8 +132,6 @@ OptionParser.new do |opts|
   end
 end.parse!
 
-$username = ENV["BUILDUPDATE_USER"] || ask("Enter your username: ") { |q| q.echo = true }
-$password = ENV["BUILDUPDATE_PASSWORD"] || ask("Enter your password: ") { |q| q.echo = "*" }
 
 
 
@@ -150,6 +148,8 @@ root_dir = $options[:root_dir]
 verbose("Options: #{$options}")
 
 server = $options[:server]
+$username = ENV["BUILDUPDATE_USER"] || ask("Enter #{server} username: ") { |q| q.echo = true }
+$password = ENV["BUILDUPDATE_PASSWORD"] || ask("Enter #{server} password: ") { |q| q.echo = "*" }
 rest_url = "http://#{server}/httpAuth/app/rest/10.0"
 rest_api = RestClient::Resource.new(rest_url, :user=>$username, :password => $password) #, :headers => { :accept => "application/json"})
 repo_url = "http://#{server}/guestAuth/repository"
