@@ -13,7 +13,7 @@ bash script will download the artifact dependencies needed for the project.
   * Check "Add Ruby executables to your PATH"
   * Check "Associate .rb and .rbw files with this Ruby installation"
 * `gem install bundler`
-* `git clone https://github.com/chrisvire/BuildUpdate`
+* `git clone https://github.com/sillsdev/BuildUpdate`
 * `cd BuildUpdate`
 * `bundle install`
 
@@ -23,7 +23,7 @@ The default version of Ruby for Ubuntu 16.04 is 2.3.1.
 
 1. `sudo apt-get install ruby ruby-dev zlib1g-dev`
 2. `sudo gem install bundler`
-3. `git clone https://github.com/chrisvire/BuildUpdate`
+3. `git clone https://github.com/sillsdev/BuildUpdate`
 4. `cd BuildUpdate`
 5. `bundle install`
 
@@ -145,6 +145,6 @@ Possible 'Build Type : Build Name' pairs:
 ```
 ## Developers
 ---
-Please reports issues through [repo issues](https://github.com/chrisvire/BuildUpdate/issues/).
+Please reports issues through [repo issues](https://github.com/sillsdev/BuildUpdate/issues/).
 If you like to contribute, please fork the repo and send pull requests.
-I will document debugging tips on the [repo wiki](https://github.com/chrisvire/BuildUpdate/wiki).
+I will document debugging tips on the [repo wiki](https://github.com/sillsdev/BuildUpdate/wiki).
