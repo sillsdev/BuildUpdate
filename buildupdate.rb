@@ -150,7 +150,7 @@ verbose("Options: #{$options}")
 server = $options[:server]
 $username = ENV["BUILDUPDATE_USER"] || ask("Enter #{server} username: ") { |q| q.echo = true }
 $password = ENV["BUILDUPDATE_PASSWORD"] || ask("Enter #{server} password: ") { |q| q.echo = "*" }
-rest_url = "https://#{server}/httpAuth/app/rest/10.0"
+rest_url = "https://#{server}/httpAuth/app/rest"
 rest_api = RestClient::Resource.new(rest_url, :user=>$username, :password => $password) #, :headers => { :accept => "application/json"})
 repo_url = "https://#{server}/guestAuth/repository"
 repo_api = RestClient::Resource.new(repo_url)
