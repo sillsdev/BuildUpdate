@@ -151,9 +151,9 @@ server = $options[:server]
 $username = ENV["BUILDUPDATE_USER"] || ask("Enter #{server} username: ") { |q| q.echo = true }
 $password = ENV["BUILDUPDATE_PASSWORD"] || ask("Enter #{server} password: ") { |q| q.echo = "*" }
 rest_url = "https://#{server}/httpAuth/app/rest"
-rest_api = RestClient::Resource.new(rest_url, :user=>$username, :password => $password) #, :headers => { :accept => "application/json"})
+rest_api = RestClient::Resource.new(rest_url, :user=>$username, :password => $password, :verify_ssl => false) #, :headers => { :accept => "application/json"})
 repo_url = "https://#{server}/guestAuth/repository"
-repo_api = RestClient::Resource.new(repo_url)
+repo_api = RestClient::Resource.new(repo_url, :verify_ssl => false)
 
 if $options[:build_type].nil?
   projects_xml = rest_api['/projects'].get
@@ -262,11 +262,11 @@ deps.dependencies.each_with_index do |d, i|
   build_type = BuildType.new(build_type_xml)
 
   #work around bug in TC 9.0 implementation of 7.0 API
-  verbose("build_type.url: #{build_type.url}")
-  url_build_type = URI.parse(build_type.url).query.split(/=/)[1]
-  if d.build_type != url_build_type
-    d.build_type = url_build_type
-  end
+  # verbose("build_type.url: #{build_type.url}")
+  # url_build_type = URI.parse(build_type.url).query.split(/=/)[1]
+  # if d.build_type != url_build_type
+  #   d.build_type = url_build_type
+  # end
 
   if tagged_build_dependencies.has_key?(d.build_type)
     d.use_tagged_build(tagged_build_dependencies[d.build_type])
