@@ -261,13 +261,6 @@ deps.dependencies.each_with_index do |d, i|
   verbose("BuildType[#{i}] req:#{req}\nxml:#{pretty_xml(build_type_xml)}")
   build_type = BuildType.new(build_type_xml)
 
-  #work around bug in TC 9.0 implementation of 7.0 API
-  verbose("build_type.url: #{build_type.url}")
-  url_build_type = URI.parse(build_type.url).query.split(/=/)[1]
-  if d.build_type != url_build_type
-    d.build_type = url_build_type
-  end
-
   if tagged_build_dependencies.has_key?(d.build_type)
     d.use_tagged_build(tagged_build_dependencies[d.build_type])
   end
